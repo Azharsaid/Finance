@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lumina Wealth — Personal Finance Dashboard</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Chart.js (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- GSAP (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+</head>
+
+<body>
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
+  </div>
+
+  <main class="app" id="appRoot">
+
+    <!-- WELCOME -->
+    <section class="welcome" id="welcomeView" aria-label="Welcome to Lumina Wealth">
+      <div class="glass welcome-card">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">LW</div>
+          <div>
+            <h1 class="brand-title">Lumina Wealth</h1>
+            <p class="brand-subtitle">Separate accounts. One calm dashboard.</p>
+          </div>
+        </div>
+
+        <form id="welcomeForm" class="welcome-form" autocomplete="on">
+          <label class="field">
+            <span>Your name (first account)</span>
+            <input id="userNameInput" type="text" placeholder="e.g., Azhar" maxlength="32" required />
+          </label>
+
+          <label class="field">
+            <span>Monthly budget</span>
+            <div class="prefix-input">
+              <span class="prefix" aria-hidden="true">Budget</span>
+              <input id="monthlyBudgetInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="e.g., 1200" required />
+            </div>
+            <small class="hint">You can add more accounts later (e.g., wife) from the sidebar.</small>
+          </label>
+
+          <button class="btn primary" type="submit">
+            <span>Enter Dashboard</span>
+            <span class="btn-glow" aria-hidden="true"></span>
+          </button>
+
+          <p class="microcopy">
+            Data is stored locally in your browser (LocalStorage). No servers.
+          </p>
+        </form>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section class="dashboard hidden" id="dashboardView" aria-label="Lumina Wealth Dashboard">
+      <!-- Mobile overlay backdrop for sidebar -->
+      <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
+
+      <aside class="sidebar glass" id="sidebar">
+        <div class="sidebar-top">
+          <div class="avatar" aria-hidden="true">
+            <span id="avatarInitials">LW</span>
+          </div>
+          <div>
+            <p class="hello">Hello, <strong id="helloName">friend</strong></p>
+            <p class="muted">Pick an account to view its history.</p>
+          </div>
+        </div>
+
+        <div class="account-box glass-inner">
+          <label class="field">
+            <span>Active account</span>
+            <select id="accountSelect" aria-label="Select account"></select>
+          </label>
+
+          <div class="account-actions">
+            <button class="btn ghost small" id="manageAccountsBtn" type="button">Manage</button>
+            <button class="btn ghost small" id="editProfileBtn" type="button">Edit budget</button>
+          </div>
+        </div>
+
+        <!-- THEME -->
+        <div class="theme-card glass-inner">
+          <div class="theme-header">
+            <h3>Theme</h3>
+            <button class="btn ghost small" id="resetThemeBtn" type="button">Default</button>
+          </div>
+
+          <div class="theme-grid">
+            <label class="field">
+              <span>Accent color</span>
+              <input id="themeColorInput" class="color-input" type="color" value="#7c5cff" />
+            </label>
+
+            <div class="theme-presets" aria-label="Theme presets">
+              <button class="swatch" type="button" data-color="#7c5cff" title="Violet" aria-label="Violet theme"></button>
+              <button class="swatch" type="button" data-color="#2dd4bf" title="Teal" aria-label="Teal theme"></button>
+              <button class="swatch" type="button" data-color="#60a5fa" title="Sky" aria-label="Sky theme"></button>
+              <button class="swatch" type="button" data-color="#fb7185" title="Rose" aria-label="Rose theme"></button>
+              <button class="swatch" type="button" data-color="#f59e0b" title="Amber" aria-label="Amber theme"></button>
+            </div>
+          </div>
+
+          <small class="hint">Theme applies to the whole dashboard (and is saved).</small>
+        </div>
+
+        <div class="quote-card glass-inner" aria-live="polite">
+          <div class="quote-header">
+            <h3>Daily Spark</h3>
+            <button class="btn ghost small" id="newQuoteBtn" type="button" title="New quote">
+              Refresh
+            </button>
+          </div>
+          <p class="quote-text" id="quoteText">Loading a quote…</p>
+          <p class="quote-author" id="quoteAuthor"></p>
+        </div>
+
+        <div class="sidebar-actions">
+          <button class="btn danger" id="resetBtn" type="button">Reset all data</button>
+        </div>
+
+        <footer class="sidebar-foot">
+          <span class="pill">Multi-Account</span>
+          <span class="pill">Calendar</span>
+          <span class="pill">Theme</span>
+          <span class="pill">Suggestions</span>
+        </footer>
+      </aside>
+
+      <section class="content">
+        <header class="topbar glass">
+          <div class="topbar-left">
+            <button class="btn ghost small sidebar-toggle" id="sidebarToggle" type="button" aria-label="Open menu">
+              ☰
+            </button>
+            <div>
+              <h2 class="title">Overview</h2>
+              <p class="subtitle">Navigate months, click days, and track each account separately.</p>
+            </div>
+          </div>
+
+          <div class="topbar-right">
+            <label class="field inline">
+              <span>Monthly Income</span>
+              <input id="incomeInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="e.g., 1800" />
+            </label>
+          </div>
+        </header>
+
+        <section class="grid">
+          <!-- Budget -->
+          <article class="card glass" id="cardBudget">
+            <div class="card-head">
+              <h3>Budget Health</h3>
+              <span class="chip" id="budgetChip">—</span>
+            </div>
+
+            <div class="mini-row">
+              <span class="mini-label">Viewing</span>
+              <span class="mini-value" id="activeMonthLabel">—</span>
+            </div>
+
+            <div class="metrics">
+              <div class="metric">
+                <span class="label">Budget</span>
+                <span class="value" id="budgetValue">—</span>
+              </div>
+              <div class="metric">
+                <span class="label">Spent</span>
+                <span class="value" id="spentValue">—</span>
+              </div>
+              <div class="metric">
+                <span class="label">Remaining</span>
+                <span class="value" id="remainingValue">—</span>
+              </div>
+            </div>
+
+            <div class="progress-wrap" aria-label="Budget remaining progress">
+              <div class="progress-meta">
+                <span id="progressLabel">Remaining</span>
+                <span id="progressPct">—</span>
+              </div>
+              <div class="progress">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Calendar -->
+          <article class="card glass" id="cardCalendar">
+            <div class="card-head">
+              <h3>Calendar</h3>
+              <div class="cal-nav">
+                <button class="btn ghost small" id="calPrev" type="button" aria-label="Previous month">◀</button>
+                <span class="cal-month" id="calMonthLabel">—</span>
+                <button class="btn ghost small" id="calNext" type="button" aria-label="Next month">▶</button>
+                <button class="btn ghost small" id="calToday" type="button">Today</button>
+              </div>
+            </div>
+
+            <div class="calendar">
+              <div class="cal-weekdays" aria-hidden="true">
+                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+              </div>
+              <div class="cal-grid" id="calGrid" role="grid" aria-label="Expense calendar"></div>
+            </div>
+
+            <div class="cal-foot">
+              <div class="cal-selected" id="calSelectedLabel">Viewing: —</div>
+              <button class="btn ghost small" id="clearSelectionBtn" type="button">Clear day</button>
+            </div>
+
+            <small class="hint">Days with expenses glow. Tap a day to filter history.</small>
+          </article>
+
+          <!-- Suggestions -->
+          <article class="card glass span-2" id="cardSuggestions">
+            <div class="card-head">
+              <h3>Saving Suggestions</h3>
+              <button class="btn ghost small" id="refreshSuggestionsBtn" type="button">Refresh</button>
+            </div>
+
+            <ul class="suggestions" id="suggestionsList"></ul>
+
+            <small class="hint">
+              Tips are generated from your active account and the month/day you’re viewing.
+              (Not financial advice — just smart budgeting nudges.)
+            </small>
+          </article>
+
+          <!-- Expenses -->
+          <article class="card glass span-2" id="cardExpenses">
+            <div class="card-head">
+              <h3>Expenses</h3>
+              <div class="head-chips">
+                <span class="chip subtle" id="viewChip">Viewing: —</span>
+                <span class="chip subtle" id="expenseCountChip">0 items</span>
+              </div>
+            </div>
+
+            <form class="expense-form" id="expenseForm">
+              <label class="field">
+                <span>Category</span>
+                <select id="categoryInput" required>
+                  <option value="Food">Food</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Housing">Housing</option>
+                  <option value="Utilities">Utilities</option>
+                  <option value="Health">Health</option>
+                  <option value="Education">Education</option>
+                  <option value="Entertainment">Entertainment</option>
+                  <option value="Shopping">Shopping</option>
+                  <option value="Other">Other</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Amount</span>
+                <input id="amountInput" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="e.g., 7.50" required />
+              </label>
+
+              <label class="field">
+                <span>Date</span>
+                <input id="dateInput" type="date" required />
+              </label>
+
+              <button class="btn primary" type="submit">
+                <span>Add Expense</span>
+                <span class="btn-glow" aria-hidden="true"></span>
+              </button>
+            </form>
+
+            <div class="table-wrap">
+              <table class="table" aria-label="Expenses list">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th class="right">Amount</th>
+                    <th class="right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="expenseTbody"></tbody>
+              </table>
+            </div>
+
+            <div class="table-foot">
+              <div class="muted" id="totalHint">Totals update based on your calendar selection.</div>
+              <div class="total">
+                <span class="label" id="totalLabel">Total</span>
+                <span class="value" id="monthTotal">—</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Charts -->
+          <article class="card glass span-2" id="cardCharts">
+            <div class="card-head">
+              <h3>Spending Visuals</h3>
+              <span class="chip subtle" id="chartMonthChip">—</span>
+            </div>
+
+            <div class="charts">
+              <div class="chart-box glass-inner">
+                <h4 class="chart-title" id="trendTitle">Trend (by day)</h4>
+                <canvas id="trendChart" height="140"></canvas>
+              </div>
+
+              <div class="chart-box glass-inner">
+                <h4 class="chart-title" id="categoryTitle">By category</h4>
+                <canvas id="categoryChart" height="140"></canvas>
+              </div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </section>
+
+    <!-- EDIT PROFILE MODAL (current account) -->
+    <div class="modal hidden" id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-panel glass">
+        <div class="modal-head">
+          <h3 id="profileTitle">Edit Current Account</h3>
+          <button class="btn ghost small" type="button" data-close="true">Close</button>
+        </div>
+
+        <form id="profileForm" class="modal-form">
+          <label class="field">
+            <span>Account name</span>
+            <input id="profileName" type="text" maxlength="32" required />
+          </label>
+
+          <label class="field">
+            <span>Monthly budget</span>
+            <input id="profileBudget" type="number" inputmode="decimal" min="0" step="0.01" required />
+          </label>
+
+          <button class="btn primary" type="submit">
+            <span>Save</span>
+            <span class="btn-glow" aria-hidden="true"></span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ACCOUNTS MODAL -->
+    <div class="modal hidden" id="accountsModal" role="dialog" aria-modal="true" aria-labelledby="accountsTitle">
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-panel glass">
+        <div class="modal-head">
+          <h3 id="accountsTitle">Accounts</h3>
+          <button class="btn ghost small" type="button" data-close="true">Close</button>
+        </div>
+
+        <div class="accounts-list" id="accountsList" aria-label="Accounts list"></div>
+
+        <div class="divider"></div>
+
+        <form id="addAccountForm" class="modal-form">
+          <h4 class="mini-h">Add new account</h4>
+
+          <label class="field">
+            <span>Account name</span>
+            <input id="newAccountName" type="text" maxlength="32" placeholder="e.g., Wife / Household" required />
+          </label>
+
+          <label class="field">
+            <span>Monthly budget</span>
+            <input id="newAccountBudget" type="number" inputmode="decimal" min="0" step="0.01" placeholder="e.g., 800" required />
+          </label>
+
+          <button class="btn primary" type="submit">
+            <span>Create account</span>
+            <span class="btn-glow" aria-hidden="true"></span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
