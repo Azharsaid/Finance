@@ -42,6 +42,11 @@
   const progressPct = $("#progressPct");
   const activeMonthLabel = $("#activeMonthLabel");
 
+  // NEW: cumulative row
+  const cumRow = $("#cumRow");
+  const cumLabel = $("#cumLabel");
+  const cumValue = $("#cumValue");
+
   // Expenses UI
   const expenseForm = $("#expenseForm");
   const categoryInput = $("#categoryInput");
@@ -100,6 +105,10 @@
   const categoryTitle = $("#categoryTitle");
   let trendChart = null;
   let categoryChart = null;
+
+  // NEW: chart mode toggle
+  const chartModeToggle = $("#chartModeToggle");
+  const chartModeButtons = chartModeToggle ? Array.from(chartModeToggle.querySelectorAll(".seg")) : [];
 
   // Theme (in JS for charts)
   const DEFAULT_THEME_HEX = "#7c5cff";
@@ -179,6 +188,10 @@
     return new Date(y, m, 0).getDate();
   }
 
+  function dateForDayIndex(monthKey, dayIndex1Based) {
+    return `${monthKey}-${String(dayIndex1Based).padStart(2, "0")}`;
+  }
+
   // ---------- Theme ----------
   function clamp(n, a, b) { return Math.min(b, Math.max(a, n)); }
 
@@ -241,13 +254,16 @@
   }
 
   // ---------- Storage model ----------
-  // store = { version:2, settings:{ themeHex }, activeAccountId, accounts: { [id]: { id, profile, expenses, ui } } }
   function defaultAccount(name, budget) {
     return {
       id: uid("acc"),
       profile: { name: name || "Account", monthlyBudget: Number(budget) || 0, monthlyIncome: 0 },
       expenses: [],
-      ui: { calendarMonth: getMonthKey(todayISO()), selectedDate: null }
+      ui: {
+        calendarMonth: getMonthKey(todayISO()),
+        selectedDate: null,
+        chartMode: "daily" // NEW
+      }
     };
   }
 
@@ -291,8 +307,9 @@
       a.id = a.id || id;
       a.profile = a.profile || { name: "Account", monthlyBudget: 0, monthlyIncome: 0 };
       a.expenses = Array.isArray(a.expenses) ? a.expenses : [];
-      a.ui = a.ui || { calendarMonth: getMonthKey(todayISO()), selectedDate: null };
+      a.ui = a.ui || { calendarMonth: getMonthKey(todayISO()), selectedDate: null, chartMode: "daily" };
       if (!a.ui.calendarMonth) a.ui.calendarMonth = getMonthKey(todayISO());
+      if (!a.ui.chartMode) a.ui.chartMode = "daily"; // NEW
     }
     return store;
   }
@@ -306,7 +323,6 @@
         if (!raw) continue;
         const legacy = JSON.parse(raw);
 
-        // If it's already multi-store-like, wrap it safely
         if (legacy?.accounts && legacy?.activeAccountId) {
           legacy.settings = legacy.settings || { themeHex: DEFAULT_THEME_HEX };
           const migrated = ensureStoreIntegrity({ ...legacy, version: 2 });
@@ -314,7 +330,6 @@
           return migrated;
         }
 
-        // If it's single-store legacy: { profile, expenses, ui }
         const name = legacy?.profile?.name || "Migrated Account";
         const budget = legacy?.profile?.monthlyBudget || 0;
 
@@ -372,14 +387,29 @@
     if (categoryChart) { categoryChart.destroy(); categoryChart = null; }
   }
 
-  function buildTrendSeries(expenses) {
-    const map = new Map();
-    for (const e of expenses) {
-      map.set(e.date, (map.get(e.date) || 0) + (Number(e.amount) || 0));
+  function buildMonthDailyTotals(monthKey, monthExp) {
+    const dim = daysInMonthByKey(monthKey);
+    const daily = Array(dim).fill(0);
+
+    for (const e of monthExp) {
+      const day = Number(String(e.date).slice(8, 10));
+      if (!Number.isFinite(day) || day < 1 || day > dim) continue;
+      daily[day - 1] += (Number(e.amount) || 0);
     }
-    const labels = Array.from(map.keys()).sort((a, b) => a.localeCompare(b));
-    const values = labels.map((d) => map.get(d));
-    return { labels, values };
+
+    const labels = Array.from({ length: dim }, (_, i) => String(i + 1));
+    const dates = Array.from({ length: dim }, (_, i) => dateForDayIndex(monthKey, i + 1));
+    return { labels, dates, daily };
+  }
+
+  function cumulativeFromDaily(daily) {
+    const out = [];
+    let run = 0;
+    for (const v of daily) {
+      run += (Number(v) || 0);
+      out.push(run);
+    }
+    return out;
   }
 
   function buildCategorySeries(expenses) {
@@ -394,62 +424,147 @@
   }
 
   function paletteFor(labels) {
-    // stable-ish palette derived from theme hue
     const base = THEME.a.h;
     return labels.map((_, i) => `hsla(${(base + i * 48) % 360}, ${clamp(THEME.a.s, 55, 95)}%, ${clamp(THEME.a.l - 8, 38, 68)}%, 0.75)`);
   }
 
-  function renderCharts(monthExp, focusExp, monthKey, selectedDate) {
+  function renderCharts(monthExp, focusExp, monthKey, selectedDate, budget, chartMode) {
     destroyCharts();
 
-    const trend = buildTrendSeries(monthExp);
-    const cat = buildCategorySeries(focusExp);
-
     const monthLabel = formatMonthLabel(monthKey);
+    const series = buildMonthDailyTotals(monthKey, monthExp);
+
+    // Header chips
+    const modeLabel = chartMode === "cumulative" ? "Cumulative" : "Daily";
+    chartMonthChip.textContent = `${monthLabel} • ${modeLabel}`;
+
+    // Category title changes based on day selection
     if (selectedDate) {
-      chartMonthChip.textContent = `${monthLabel} • Day selected`;
       categoryTitle.textContent = "By category (selected day)";
     } else {
-      chartMonthChip.textContent = `${monthLabel} • Full month`;
       categoryTitle.textContent = "By category (month)";
     }
-    trendTitle.textContent = `Trend (by day) • ${monthLabel}`;
+
+    // Trend title changes based on mode
+    trendTitle.textContent = chartMode === "cumulative"
+      ? `Cumulative spend vs budget pace • ${monthLabel}`
+      : `Daily spend • ${monthLabel}`;
 
     const axis = {
       ticks: { color: "rgba(255,255,255,0.65)" },
       grid: { color: "rgba(255,255,255,0.08)" }
     };
 
-    trendChart = new Chart(trendCanvas, {
-      type: "line",
-      data: {
-        labels: trend.labels,
-        datasets: [{
-          label: "Daily spend",
-          data: trend.values,
-          tension: 0.35,
-          pointRadius: 3,
+    const tooltipTitle = (items) => {
+      const idx = items?.[0]?.dataIndex ?? 0;
+      const dateStr = series.dates[idx] || "";
+      return dateStr ? formatDateLabel(dateStr) : "";
+    };
+
+    if (chartMode === "cumulative") {
+      const cumSpend = cumulativeFromDaily(series.daily);
+      const dim = series.daily.length || 1;
+      const cumBudget = (Number(budget) > 0)
+        ? series.daily.map((_, i) => (Number(budget) || 0) * ((i + 1) / dim))
+        : null;
+
+      const datasets = [
+        {
+          label: "Cumulative expenses",
+          data: cumSpend,
+          tension: 0.28,
+          pointRadius: 2.5,
           borderWidth: 2,
           borderColor: hsla(THEME.a, 0.95),
-          backgroundColor: hsla(THEME.a, 0.18),
+          backgroundColor: hsla(THEME.a, 0.16),
           pointBackgroundColor: hsla(THEME.b, 0.9),
           pointBorderColor: hsla(THEME.a, 0.9),
           fill: true
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: { label: (ctx) => currencyFmt.format(ctx.parsed.y ?? 0) }
-          }
-        },
-        scales: { x: axis, y: axis }
-      }
-    });
+        }
+      ];
 
+      if (cumBudget) {
+        datasets.push({
+          label: "Cumulative budget pace",
+          data: cumBudget,
+          tension: 0.15,
+          pointRadius: 0,
+          borderWidth: 2,
+          borderDash: [7, 6],
+          borderColor: "rgba(255,255,255,0.55)",
+          backgroundColor: "transparent",
+          fill: false
+        });
+      }
+
+      trendChart = new Chart(trendCanvas, {
+        type: "line",
+        data: { labels: series.labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, labels: { color: "rgba(255,255,255,0.75)" } },
+            tooltip: {
+              callbacks: {
+                title: tooltipTitle,
+                label: (ctx) => `${ctx.dataset.label}: ${currencyFmt.format(ctx.parsed.y ?? 0)}`
+              }
+            }
+          },
+          scales: {
+            x: axis,
+            y: {
+              ...axis,
+              ticks: {
+                ...axis.ticks,
+                callback: (v) => {
+                  try { return currencyFmt.format(Number(v) || 0); }
+                  catch { return v; }
+                }
+              }
+            }
+          }
+        }
+      });
+    } else {
+      // DAILY mode
+      trendChart = new Chart(trendCanvas, {
+        type: "line",
+        data: {
+          labels: series.labels,
+          datasets: [{
+            label: "Daily spend",
+            data: series.daily,
+            tension: 0.35,
+            pointRadius: 3,
+            borderWidth: 2,
+            borderColor: hsla(THEME.a, 0.95),
+            backgroundColor: hsla(THEME.a, 0.18),
+            pointBackgroundColor: hsla(THEME.b, 0.9),
+            pointBorderColor: hsla(THEME.a, 0.9),
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: tooltipTitle,
+                label: (ctx) => currencyFmt.format(ctx.parsed.y ?? 0)
+              }
+            }
+          },
+          scales: { x: axis, y: axis }
+        }
+      });
+    }
+
+    // Category chart always uses the "focus" set (day if selected, else month)
+    const cat = buildCategorySeries(focusExp);
     categoryChart = new Chart(categoryCanvas, {
       type: "doughnut",
       data: {
@@ -487,7 +602,6 @@
     const focusExp = focusIsDay ? dayExpenses(acc, selectedDate) : monthExp;
     const spentFocus = sumExpenses(focusExp);
 
-    // 0) No data
     if (!monthExp.length) {
       out.push({
         title: "Start simple: log 3 categories for a week",
@@ -497,7 +611,6 @@
       return out;
     }
 
-    // 1) Budget status
     if (budget > 0) {
       const remaining = budget - spentMonth;
       const pct = (spentMonth / budget) * 100;
@@ -521,27 +634,6 @@
           meta: "Steady pacing beats heroic last-minute fixes."
         });
       }
-
-      // Burn rate only makes sense for the current month
-      const now = new Date();
-      const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      if (monthKey === currentKey) {
-        const dayOfMonth = now.getDate();
-        const dim = daysInMonthByKey(monthKey);
-        const daysLeft = Math.max(1, dim - dayOfMonth);
-
-        const remaining = Math.max(0, budget - spentMonth);
-        const allowedPerDay = remaining / daysLeft;
-        const actualPerDay = spentMonth / Math.max(1, dayOfMonth);
-
-        if (actualPerDay > allowedPerDay * 1.1) {
-          out.push({
-            title: "Daily target to stay under budget",
-            body: `Your current pace is ${currencyFmt.format(actualPerDay)}/day. To stay under budget, aim for about ${currencyFmt.format(allowedPerDay)}/day for the remaining ${daysLeft} days.`,
-            meta: "This is a pace check, not a punishment."
-          });
-        }
-      }
     } else {
       out.push({
         title: "Set a budget to unlock better guidance",
@@ -550,7 +642,6 @@
       });
     }
 
-    // 2) Category concentration
     const catMap = new Map();
     for (const e of monthExp) {
       const c = e.category || "Other";
@@ -576,7 +667,6 @@
       }
     }
 
-    // 3) Small frequent expenses
     const small = monthExp.filter(e => (Number(e.amount) || 0) > 0 && (Number(e.amount) || 0) <= 5);
     if (small.length >= 8) {
       out.push({
@@ -586,7 +676,6 @@
       });
     }
 
-    // 4) Income → potential savings
     if (income > 0) {
       const potential = income - spentMonth;
       if (potential > 0) {
@@ -604,7 +693,6 @@
       }
     }
 
-    // 5) If day view: day-specific nudge
     if (focusIsDay) {
       out.push({
         title: "Day snapshot",
@@ -613,7 +701,6 @@
       });
     }
 
-    // Keep it tidy
     return out.slice(0, 6);
   }
 
@@ -994,12 +1081,33 @@
     progressBar.style.width = `${pct.toFixed(1)}%`;
     progressPct.textContent = `${pct.toFixed(1)}% left`;
 
+    // NEW: cumulative row when a day is selected (within the viewed month)
+    const isDayInMonth = !!(selectedDate && getMonthKey(selectedDate) === monthKey);
+    if (isDayInMonth) {
+      const dim = daysInMonthByKey(monthKey);
+      const dayN = Number(String(selectedDate).slice(8, 10));
+      const cumSpent = monthExp
+        .filter(e => String(e.date) <= String(selectedDate))
+        .reduce((a, e) => a + (Number(e.amount) || 0), 0);
+
+      cumLabel.textContent = `Cumulative to day ${dayN}`;
+      if (budget > 0) {
+        const cumBudget = budget * (dayN / Math.max(1, dim));
+        cumValue.textContent = `${currencyFmt.format(cumSpent)} • pace budget ${currencyFmt.format(cumBudget)}`;
+      } else {
+        cumValue.textContent = currencyFmt.format(cumSpent);
+      }
+      cumRow.classList.remove("hidden");
+    } else {
+      cumRow.classList.add("hidden");
+    }
+
     // Focus list (day vs month)
     let focusExp = monthExp;
     let focusLabel = formatMonthLabel(monthKey);
     let focusSelected = null;
 
-    if (selectedDate && getMonthKey(selectedDate) === monthKey) {
+    if (isDayInMonth) {
       focusExp = dayExpenses(acc, selectedDate);
       focusLabel = formatDateLabel(selectedDate);
       focusSelected = selectedDate;
@@ -1027,7 +1135,13 @@
       animateCardPulse("#cardExpenses");
     });
 
-    renderCharts(monthExp, focusExp, monthKey, focusSelected);
+    // NEW: chart mode (stored per account)
+    const chartMode = acc.ui?.chartMode || "daily";
+    chartModeButtons.forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.mode === chartMode);
+    });
+
+    renderCharts(monthExp, focusExp, monthKey, focusSelected, budget, chartMode);
     renderCalendar(acc);
     renderSuggestions(acc, monthKey, selectedDate);
 
@@ -1071,6 +1185,25 @@
   // Sidebar mobile
   sidebarToggle.addEventListener("click", () => openSidebarMobile());
   sidebarBackdrop.addEventListener("click", () => closeSidebarMobile());
+
+  // NEW: Chart mode toggle events
+  if (chartModeToggle) {
+    chartModeToggle.addEventListener("click", (e) => {
+      const btn = e.target?.closest?.(".seg");
+      if (!btn) return;
+      const mode = btn.dataset.mode;
+      if (mode !== "daily" && mode !== "cumulative") return;
+
+      const store = ensureStoreIntegrity(loadStore());
+      const acc = getActiveAccount(store);
+      if (!acc) return;
+
+      acc.ui.chartMode = mode;
+      saveStore(store);
+      rerenderAll(store);
+      showToast(mode === "cumulative" ? "Cumulative view enabled." : "Daily view enabled.");
+    });
+  }
 
   // Account switching
   accountSelect.addEventListener("change", () => {
@@ -1321,7 +1454,7 @@
     let store = migrated || loadStore();
     if (store) store = ensureStoreIntegrity(store);
 
-    // Apply saved theme early (even on welcome screen)
+    // Apply saved theme early
     const themeHex = store?.settings?.themeHex || DEFAULT_THEME_HEX;
     applyThemeHex(themeHex);
     if (themeColorInput) themeColorInput.value = themeHex;

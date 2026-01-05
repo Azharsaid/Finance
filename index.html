@@ -137,6 +137,7 @@
           <span class="pill">Calendar</span>
           <span class="pill">Theme</span>
           <span class="pill">Suggestions</span>
+          <span class="pill">Cumulative</span>
         </footer>
       </aside>
 
@@ -171,6 +172,12 @@
             <div class="mini-row">
               <span class="mini-label">Viewing</span>
               <span class="mini-value" id="activeMonthLabel">—</span>
+            </div>
+
+            <!-- NEW: shows only when a day is selected -->
+            <div class="mini-row hidden" id="cumRow">
+              <span class="mini-label" id="cumLabel">Cumulative</span>
+              <span class="mini-value" id="cumValue">—</span>
             </div>
 
             <div class="metrics">
@@ -310,7 +317,15 @@
           <article class="card glass span-2" id="cardCharts">
             <div class="card-head">
               <h3>Spending Visuals</h3>
-              <span class="chip subtle" id="chartMonthChip">—</span>
+              <div class="head-chips">
+                <!-- NEW: mode toggle -->
+                <div class="segmented" id="chartModeToggle" aria-label="Chart mode">
+                  <button class="seg active" type="button" data-mode="daily">Daily</button>
+                  <button class="seg" type="button" data-mode="cumulative">Cumulative</button>
+                </div>
+
+                <span class="chip subtle" id="chartMonthChip">—</span>
+              </div>
             </div>
 
             <div class="charts">
