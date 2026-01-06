@@ -1,8 +1,8 @@
 (function () {
-  const STORAGE_KEY = "lumina_wealth_multi_v2";
-  const LEGACY_KEYS = ["lumina_wealth_multi_v1", "lumina_wealth_v2", "lumina_wealth_v1"];
+  const STORAGE_KEY = "lumina_wealth_multi_v3";
+  const LEGACY_KEYS = ["lumina_wealth_multi_v2", "lumina_wealth_multi_v1", "lumina_wealth_v2", "lumina_wealth_v1"];
 
-  const $ = (sel) => document.querySelector(sel);
+  const $ = (s) => document.querySelector(s);
 
   // Views
   const welcomeView = $("#welcomeView");
@@ -13,15 +13,16 @@
   const userNameInput = $("#userNameInput");
   const monthlyBudgetInput = $("#monthlyBudgetInput");
 
-  // Sidebar + mobile
+  // Sidebar mobile
   const sidebarToggle = $("#sidebarToggle");
   const sidebarBackdrop = $("#sidebarBackdrop");
 
-  // Account switcher
+  // Account
   const accountSelect = $("#accountSelect");
   const manageAccountsBtn = $("#manageAccountsBtn");
+  const editMonthBtn = $("#editMonthBtn");
 
-  // Dashboard identity
+  // Identity
   const helloName = $("#helloName");
   const avatarInitials = $("#avatarInitials");
 
@@ -30,7 +31,12 @@
   const resetThemeBtn = $("#resetThemeBtn");
   const presetSwatches = Array.from(document.querySelectorAll(".swatch"));
 
-  // Inputs
+  // Scope
+  const scopeToggle = $("#scopeToggle");
+  const scopeButtons = scopeToggle ? Array.from(scopeToggle.querySelectorAll(".seg")) : [];
+
+  // Income
+  const incomeLabel = $("#incomeLabel");
   const incomeInput = $("#incomeInput");
 
   // Budget UI
@@ -42,14 +48,41 @@
   const progressPct = $("#progressPct");
   const activeMonthLabel = $("#activeMonthLabel");
 
-  // NEW: cumulative row
+  const trackedRow = $("#trackedRow");
+  const trackedValue = $("#trackedValue");
+
   const cumRow = $("#cumRow");
   const cumLabel = $("#cumLabel");
   const cumValue = $("#cumValue");
 
-  // Expenses UI
+  // Calendar
+  const calendarTitle = $("#calendarTitle");
+  const calNav = $("#calNav");
+  const calendarWrap = $("#calendarWrap");
+  const monthListWrap = $("#monthListWrap");
+  const monthList = $("#monthList");
+
+  const calPrev = $("#calPrev");
+  const calNext = $("#calNext");
+  const calToday = $("#calToday");
+  const calMonthLabel = $("#calMonthLabel");
+  const calGrid = $("#calGrid");
+  const calSelectedLabel = $("#calSelectedLabel");
+  const clearSelectionBtn = $("#clearSelectionBtn");
+
+  // Suggestions
+  const suggestionsList = $("#suggestionsList");
+  const refreshSuggestionsBtn = $("#refreshSuggestionsBtn");
+
+  // Quote
+  const quoteText = $("#quoteText");
+  const quoteAuthor = $("#quoteAuthor");
+  const newQuoteBtn = $("#newQuoteBtn");
+
+  // Expenses
   const expenseForm = $("#expenseForm");
   const categoryInput = $("#categoryInput");
+  const categoryList = $("#categoryList");
   const amountInput = $("#amountInput");
   const dateInput = $("#dateInput");
   const expenseTbody = $("#expenseTbody");
@@ -59,21 +92,17 @@
   const totalLabel = $("#totalLabel");
   const totalHint = $("#totalHint");
 
-  // Suggestions UI
-  const suggestionsList = $("#suggestionsList");
-  const refreshSuggestionsBtn = $("#refreshSuggestionsBtn");
-
-  // Quote
-  const quoteText = $("#quoteText");
-  const quoteAuthor = $("#quoteAuthor");
-  const newQuoteBtn = $("#newQuoteBtn");
-
-  // Profile modal (current account)
-  const profileModal = $("#profileModal");
-  const editProfileBtn = $("#editProfileBtn");
-  const profileForm = $("#profileForm");
-  const profileName = $("#profileName");
-  const profileBudget = $("#profileBudget");
+  // Charts
+  const trendCanvas = $("#trendChart");
+  const categoryCanvas = $("#categoryChart");
+  const chartMonthChip = $("#chartMonthChip");
+  const trendTitle = $("#trendTitle");
+  const categoryTitle = $("#categoryTitle");
+  const chartModeToggle = $("#chartModeToggle");
+  const chartModeButtons = chartModeToggle ? Array.from(chartModeToggle.querySelectorAll(".seg")) : [];
+  const downloadPdfBtn = $("#downloadPdfBtn");
+  let trendChart = null;
+  let categoryChart = null;
 
   // Accounts modal
   const accountsModal = $("#accountsModal");
@@ -82,35 +111,22 @@
   const newAccountName = $("#newAccountName");
   const newAccountBudget = $("#newAccountBudget");
 
+  // Month modal
+  const monthModal = $("#monthModal");
+  const monthForm = $("#monthForm");
+  const editMonthLabel = $("#editMonthLabel");
+  const monthAccountName = $("#monthAccountName");
+  const monthBudgetInput = $("#monthBudgetInput");
+  const monthIncomeInput = $("#monthIncomeInput");
+
   // Reset
   const resetBtn = $("#resetBtn");
 
   // Toast
   const toast = $("#toast");
 
-  // Calendar
-  const calPrev = $("#calPrev");
-  const calNext = $("#calNext");
-  const calToday = $("#calToday");
-  const calMonthLabel = $("#calMonthLabel");
-  const calGrid = $("#calGrid");
-  const calSelectedLabel = $("#calSelectedLabel");
-  const clearSelectionBtn = $("#clearSelectionBtn");
-
-  // Charts
-  const trendCanvas = $("#trendChart");
-  const categoryCanvas = $("#categoryChart");
-  const chartMonthChip = $("#chartMonthChip");
-  const trendTitle = $("#trendTitle");
-  const categoryTitle = $("#categoryTitle");
-  let trendChart = null;
-  let categoryChart = null;
-
-  // NEW: chart mode toggle
-  const chartModeToggle = $("#chartModeToggle");
-  const chartModeButtons = chartModeToggle ? Array.from(chartModeToggle.querySelectorAll(".seg")) : [];
-
-  // Theme (in JS for charts)
+  // ---------- constants ----------
+  const currencyFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" });
   const DEFAULT_THEME_HEX = "#7c5cff";
   let THEME = { a: { h: 255, s: 100, l: 68 }, b: { h: 165, s: 100, l: 65 }, hex: DEFAULT_THEME_HEX };
 
@@ -121,9 +137,7 @@
     { content: "A budget is telling your money where to go instead of wondering where it went.", author: "Dave Ramsey" },
   ];
 
-  const currencyFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" });
-
-  // ---------- Helpers ----------
+  // ---------- helpers ----------
   function todayISO() {
     const d = new Date();
     const yyyy = d.getFullYear();
@@ -131,37 +145,47 @@
     const dd = String(d.getDate()).padStart(2, "0");
     return `${yyyy}-${mm}-${dd}`;
   }
-
-  function getMonthKey(dateStr) {
-    return (dateStr || todayISO()).slice(0, 7); // YYYY-MM
-  }
-
+  function getMonthKey(dateStr) { return (dateStr || todayISO()).slice(0, 7); }
   function monthKeyToDate(monthKey) {
     const [y, m] = monthKey.split("-").map(Number);
     return new Date(y, m - 1, 1);
   }
-
   function formatMonthLabel(monthKey) {
     const d = monthKeyToDate(monthKey);
     return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(d);
   }
-
   function formatDateLabel(dateStr) {
     const [y, m, d] = dateStr.split("-").map(Number);
     const dt = new Date(y, m - 1, d);
     return new Intl.DateTimeFormat(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" }).format(dt);
   }
-
-  function uid(prefix = "acc") {
-    return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
+  function daysInMonthByKey(monthKey) {
+    const [y, m] = monthKey.split("-").map(Number);
+    return new Date(y, m, 0).getDate();
   }
-
+  function dateForDayIndex(monthKey, dayIndex1Based) {
+    return `${monthKey}-${String(dayIndex1Based).padStart(2, "0")}`;
+  }
+  function uid(prefix = "id") { return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`; }
   function initials(name) {
     const parts = (name || "").trim().split(/\s+/).filter(Boolean);
     if (!parts.length) return "LW";
     const a = parts[0]?.[0] || "";
     const b = parts.length > 1 ? parts[parts.length - 1][0] : "";
     return (a + b).toUpperCase();
+  }
+  function clamp(n, a, b) { return Math.min(b, Math.max(a, n)); }
+  function sumExpenses(expenses) { return expenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0); }
+  function monthExpenses(acc, monthKey) { return (acc.expenses || []).filter((e) => getMonthKey(e.date) === monthKey); }
+  function dayExpenses(acc, dateStr) { return (acc.expenses || []).filter((e) => e.date === dateStr); }
+
+  function escapeHtml(str) {
+    return String(str ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
   function showToast(msg) {
@@ -171,30 +195,10 @@
     showToast._t = window.setTimeout(() => toast.classList.remove("show"), 2200);
   }
 
-  function sumExpenses(expenses) {
-    return expenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
-  }
+  function openSidebarMobile() { document.body.classList.add("sidebar-open"); }
+  function closeSidebarMobile() { document.body.classList.remove("sidebar-open"); }
 
-  function monthExpenses(acc, monthKey) {
-    return acc.expenses.filter((e) => getMonthKey(e.date) === monthKey);
-  }
-
-  function dayExpenses(acc, dateStr) {
-    return acc.expenses.filter((e) => e.date === dateStr);
-  }
-
-  function daysInMonthByKey(monthKey) {
-    const [y, m] = monthKey.split("-").map(Number);
-    return new Date(y, m, 0).getDate();
-  }
-
-  function dateForDayIndex(monthKey, dayIndex1Based) {
-    return `${monthKey}-${String(dayIndex1Based).padStart(2, "0")}`;
-  }
-
-  // ---------- Theme ----------
-  function clamp(n, a, b) { return Math.min(b, Math.max(a, n)); }
-
+  // ---------- theme ----------
   function hexToRgb(hex) {
     const h = (hex || "").replace("#", "").trim();
     if (h.length !== 6) return null;
@@ -204,14 +208,12 @@
     if ([r, g, b].some(Number.isNaN)) return null;
     return { r, g, b };
   }
-
   function rgbToHsl(r, g, b) {
     r /= 255; g /= 255; b /= 255;
     const max = Math.max(r, g, b), min = Math.min(r, g, b);
     let h = 0, s = 0;
     const l = (max + min) / 2;
     const d = max - min;
-
     if (d !== 0) {
       s = d / (1 - Math.abs(2 * l - 1));
       switch (max) {
@@ -224,26 +226,20 @@
     }
     return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
   }
-
-  function hsla(c, a) {
-    return `hsla(${c.h}, ${c.s}%, ${c.l}%, ${a})`;
-  }
+  function hsla(c, a) { return `hsla(${c.h}, ${c.s}%, ${c.l}%, ${a})`; }
 
   function applyThemeHex(hex) {
     const rgb = hexToRgb(hex);
     if (!rgb) return;
 
     const a = rgbToHsl(rgb.r, rgb.g, rgb.b);
-    // Secondary color: hue-shift for contrast
     const b = {
       h: (a.h + 140) % 360,
       s: clamp(a.s, 55, 100),
       l: clamp(a.l + 6, 45, 75),
     };
-
     THEME = { a, b, hex };
 
-    // Push to CSS variables for UI
     const root = document.documentElement;
     root.style.setProperty("--a-h", a.h);
     root.style.setProperty("--a-s", `${a.s}%`);
@@ -253,30 +249,7 @@
     root.style.setProperty("--b-l", `${b.l}%`);
   }
 
-  // ---------- Storage model ----------
-  function defaultAccount(name, budget) {
-    return {
-      id: uid("acc"),
-      profile: { name: name || "Account", monthlyBudget: Number(budget) || 0, monthlyIncome: 0 },
-      expenses: [],
-      ui: {
-        calendarMonth: getMonthKey(todayISO()),
-        selectedDate: null,
-        chartMode: "daily" // NEW
-      }
-    };
-  }
-
-  function defaultStore() {
-    const acc = defaultAccount("My Account", 0);
-    return {
-      version: 2,
-      settings: { themeHex: DEFAULT_THEME_HEX },
-      activeAccountId: acc.id,
-      accounts: { [acc.id]: acc }
-    };
-  }
-
+  // ---------- storage ----------
   function loadStore() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -284,72 +257,132 @@
       return JSON.parse(raw);
     } catch { return null; }
   }
-
   function saveStore(store) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   }
 
-  function getActiveAccount(store) {
-    if (!store || !store.accounts) return null;
-    return store.accounts[store.activeAccountId] || null;
+  function defaultAccount(name, startingBudget, forMonthKey) {
+    const monthKey = forMonthKey || getMonthKey(todayISO());
+    return {
+      id: uid("acc"),
+      profile: { name: name || "Account" },
+      financials: { [monthKey]: { budget: Number(startingBudget) || 0, income: 0 } },
+      expenses: [],
+      ui: {
+        scope: "month",               // "month" | "all"
+        calendarMonth: monthKey,
+        selectedDate: null,
+        chartMode: "daily"            // "daily" | "cumulative"
+      }
+    };
+  }
+
+  function defaultStore(name, startingBudget) {
+    const acc = defaultAccount(name || "My Account", startingBudget || 0, getMonthKey(todayISO()));
+    return {
+      version: 3,
+      settings: { themeHex: DEFAULT_THEME_HEX },
+      activeAccountId: acc.id,
+      accounts: { [acc.id]: acc }
+    };
   }
 
   function ensureStoreIntegrity(store) {
-    if (!store || !store.accounts || !Object.keys(store.accounts).length) return defaultStore();
+    if (!store || !store.accounts || !Object.keys(store.accounts).length) return defaultStore("My Account", 0);
+
+    store.version = 3;
     store.settings = store.settings || { themeHex: DEFAULT_THEME_HEX };
     if (!store.settings.themeHex) store.settings.themeHex = DEFAULT_THEME_HEX;
 
     if (!store.activeAccountId || !store.accounts[store.activeAccountId]) {
       store.activeAccountId = Object.keys(store.accounts)[0];
     }
+
     for (const id of Object.keys(store.accounts)) {
       const a = store.accounts[id];
       a.id = a.id || id;
-      a.profile = a.profile || { name: "Account", monthlyBudget: 0, monthlyIncome: 0 };
+      a.profile = a.profile || { name: "Account" };
       a.expenses = Array.isArray(a.expenses) ? a.expenses : [];
-      a.ui = a.ui || { calendarMonth: getMonthKey(todayISO()), selectedDate: null, chartMode: "daily" };
+
+      a.financials = a.financials || {};
+      a.ui = a.ui || {};
+      if (!a.ui.scope) a.ui.scope = "month";
       if (!a.ui.calendarMonth) a.ui.calendarMonth = getMonthKey(todayISO());
-      if (!a.ui.chartMode) a.ui.chartMode = "daily"; // NEW
+      if (!("selectedDate" in a.ui)) a.ui.selectedDate = null;
+      if (!a.ui.chartMode) a.ui.chartMode = "daily";
+
+      // Migration from old fields if present
+      if ("monthlyBudget" in a.profile || "monthlyIncome" in a.profile) {
+        const mk = a.ui.calendarMonth || getMonthKey(todayISO());
+        a.financials[mk] = a.financials[mk] || { budget: 0, income: 0 };
+        if (Number.isFinite(Number(a.profile.monthlyBudget))) a.financials[mk].budget = Number(a.profile.monthlyBudget) || 0;
+        if (Number.isFinite(Number(a.profile.monthlyIncome))) a.financials[mk].income = Number(a.profile.monthlyIncome) || 0;
+        delete a.profile.monthlyBudget;
+        delete a.profile.monthlyIncome;
+      }
     }
     return store;
   }
 
   function tryMigrateLegacy() {
     if (localStorage.getItem(STORAGE_KEY)) return null;
-
     for (const k of LEGACY_KEYS) {
       try {
         const raw = localStorage.getItem(k);
         if (!raw) continue;
         const legacy = JSON.parse(raw);
-
-        if (legacy?.accounts && legacy?.activeAccountId) {
-          legacy.settings = legacy.settings || { themeHex: DEFAULT_THEME_HEX };
-          const migrated = ensureStoreIntegrity({ ...legacy, version: 2 });
-          saveStore(migrated);
-          return migrated;
-        }
-
-        const name = legacy?.profile?.name || "Migrated Account";
-        const budget = legacy?.profile?.monthlyBudget || 0;
-
-        const acc = defaultAccount(name, budget);
-        acc.profile.monthlyIncome = legacy?.profile?.monthlyIncome || 0;
-        acc.expenses = Array.isArray(legacy?.expenses) ? legacy.expenses : [];
-        if (legacy?.ui) {
-          acc.ui.calendarMonth = legacy.ui.calendarMonth || acc.ui.calendarMonth;
-          acc.ui.selectedDate = legacy.ui.selectedDate || null;
-        }
-
-        const store = { version: 2, settings: { themeHex: DEFAULT_THEME_HEX }, activeAccountId: acc.id, accounts: { [acc.id]: acc } };
-        saveStore(store);
-        return store;
+        const migrated = ensureStoreIntegrity({ ...legacy, version: 3 });
+        saveStore(migrated);
+        return migrated;
       } catch { /* ignore */ }
     }
     return null;
   }
 
-  // ---------- Quotes ----------
+  function getActiveAccount(store) {
+    return store?.accounts?.[store.activeAccountId] || null;
+  }
+
+  function getMonthFinance(acc, monthKey) {
+    const f = acc.financials?.[monthKey];
+    return {
+      budget: Number(f?.budget) || 0,
+      income: Number(f?.income) || 0
+    };
+  }
+
+  function setMonthFinance(acc, monthKey, budget, income) {
+    acc.financials = acc.financials || {};
+    acc.financials[monthKey] = {
+      budget: Number(budget) || 0,
+      income: Number(income) || 0
+    };
+  }
+
+  function getAllMonthKeys(acc) {
+    const set = new Set();
+
+    for (const e of (acc.expenses || [])) set.add(getMonthKey(e.date));
+    for (const mk of Object.keys(acc.financials || {})) set.add(mk);
+
+    const arr = Array.from(set);
+    arr.sort((a,b) => a.localeCompare(b)); // ascending
+    return arr;
+  }
+
+  function getMonthlySummary(acc) {
+    const months = getAllMonthKeys(acc);
+    return months.map((mk) => {
+      const exp = monthExpenses(acc, mk);
+      const spent = sumExpenses(exp);
+      const fin = getMonthFinance(acc, mk);
+      const budget = fin.budget;
+      const remaining = budget > 0 ? (budget - spent) : 0;
+      return { monthKey: mk, spent, budget, remaining };
+    });
+  }
+
+  // ---------- quotes ----------
   async function fetchQuote() {
     const endpoint = "https://zenquotes.io/api/random";
     try {
@@ -381,368 +414,29 @@
     }
   }
 
-  // ---------- Charts ----------
-  function destroyCharts() {
-    if (trendChart) { trendChart.destroy(); trendChart = null; }
-    if (categoryChart) { categoryChart.destroy(); categoryChart = null; }
+  // ---------- datalist ----------
+  function renderCategoryDatalist(acc){
+    if (!categoryList) return;
+
+    const defaults = [
+      "Groceries","Food","Transport","Fuel","Rent","Housing","Utilities",
+      "Health","Education","Entertainment","Shopping","Bills","Other"
+    ];
+
+    const set = new Set(defaults);
+    for (const e of (acc.expenses || [])) {
+      const c = String(e.category || "").trim();
+      if (c) set.add(c);
+    }
+
+    const items = Array.from(set).sort((a,b)=>a.localeCompare(b));
+    categoryList.innerHTML = items.map(v => `<option value="${escapeHtml(v)}"></option>`).join("");
   }
 
-  function buildMonthDailyTotals(monthKey, monthExp) {
-    const dim = daysInMonthByKey(monthKey);
-    const daily = Array(dim).fill(0);
-
-    for (const e of monthExp) {
-      const day = Number(String(e.date).slice(8, 10));
-      if (!Number.isFinite(day) || day < 1 || day > dim) continue;
-      daily[day - 1] += (Number(e.amount) || 0);
-    }
-
-    const labels = Array.from({ length: dim }, (_, i) => String(i + 1));
-    const dates = Array.from({ length: dim }, (_, i) => dateForDayIndex(monthKey, i + 1));
-    return { labels, dates, daily };
-  }
-
-  function cumulativeFromDaily(daily) {
-    const out = [];
-    let run = 0;
-    for (const v of daily) {
-      run += (Number(v) || 0);
-      out.push(run);
-    }
-    return out;
-  }
-
-  function buildCategorySeries(expenses) {
-    const map = new Map();
-    for (const e of expenses) {
-      const c = e.category || "Other";
-      map.set(c, (map.get(c) || 0) + (Number(e.amount) || 0));
-    }
-    const labels = Array.from(map.keys()).sort();
-    const values = labels.map((l) => map.get(l));
-    return { labels, values };
-  }
-
-  function paletteFor(labels) {
-    const base = THEME.a.h;
-    return labels.map((_, i) => `hsla(${(base + i * 48) % 360}, ${clamp(THEME.a.s, 55, 95)}%, ${clamp(THEME.a.l - 8, 38, 68)}%, 0.75)`);
-  }
-
-  function renderCharts(monthExp, focusExp, monthKey, selectedDate, budget, chartMode) {
-    destroyCharts();
-
-    const monthLabel = formatMonthLabel(monthKey);
-    const series = buildMonthDailyTotals(monthKey, monthExp);
-
-    // Header chips
-    const modeLabel = chartMode === "cumulative" ? "Cumulative" : "Daily";
-    chartMonthChip.textContent = `${monthLabel} • ${modeLabel}`;
-
-    // Category title changes based on day selection
-    if (selectedDate) {
-      categoryTitle.textContent = "By category (selected day)";
-    } else {
-      categoryTitle.textContent = "By category (month)";
-    }
-
-    // Trend title changes based on mode
-    trendTitle.textContent = chartMode === "cumulative"
-      ? `Cumulative spend vs budget pace • ${monthLabel}`
-      : `Daily spend • ${monthLabel}`;
-
-    const axis = {
-      ticks: { color: "rgba(255,255,255,0.65)" },
-      grid: { color: "rgba(255,255,255,0.08)" }
-    };
-
-    const tooltipTitle = (items) => {
-      const idx = items?.[0]?.dataIndex ?? 0;
-      const dateStr = series.dates[idx] || "";
-      return dateStr ? formatDateLabel(dateStr) : "";
-    };
-
-    if (chartMode === "cumulative") {
-      const cumSpend = cumulativeFromDaily(series.daily);
-      const dim = series.daily.length || 1;
-      const cumBudget = (Number(budget) > 0)
-        ? series.daily.map((_, i) => (Number(budget) || 0) * ((i + 1) / dim))
-        : null;
-
-      const datasets = [
-        {
-          label: "Cumulative expenses",
-          data: cumSpend,
-          tension: 0.28,
-          pointRadius: 2.5,
-          borderWidth: 2,
-          borderColor: hsla(THEME.a, 0.95),
-          backgroundColor: hsla(THEME.a, 0.16),
-          pointBackgroundColor: hsla(THEME.b, 0.9),
-          pointBorderColor: hsla(THEME.a, 0.9),
-          fill: true
-        }
-      ];
-
-      if (cumBudget) {
-        datasets.push({
-          label: "Cumulative budget pace",
-          data: cumBudget,
-          tension: 0.15,
-          pointRadius: 0,
-          borderWidth: 2,
-          borderDash: [7, 6],
-          borderColor: "rgba(255,255,255,0.55)",
-          backgroundColor: "transparent",
-          fill: false
-        });
-      }
-
-      trendChart = new Chart(trendCanvas, {
-        type: "line",
-        data: { labels: series.labels, datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, labels: { color: "rgba(255,255,255,0.75)" } },
-            tooltip: {
-              callbacks: {
-                title: tooltipTitle,
-                label: (ctx) => `${ctx.dataset.label}: ${currencyFmt.format(ctx.parsed.y ?? 0)}`
-              }
-            }
-          },
-          scales: {
-            x: axis,
-            y: {
-              ...axis,
-              ticks: {
-                ...axis.ticks,
-                callback: (v) => {
-                  try { return currencyFmt.format(Number(v) || 0); }
-                  catch { return v; }
-                }
-              }
-            }
-          }
-        }
-      });
-    } else {
-      // DAILY mode
-      trendChart = new Chart(trendCanvas, {
-        type: "line",
-        data: {
-          labels: series.labels,
-          datasets: [{
-            label: "Daily spend",
-            data: series.daily,
-            tension: 0.35,
-            pointRadius: 3,
-            borderWidth: 2,
-            borderColor: hsla(THEME.a, 0.95),
-            backgroundColor: hsla(THEME.a, 0.18),
-            pointBackgroundColor: hsla(THEME.b, 0.9),
-            pointBorderColor: hsla(THEME.a, 0.9),
-            fill: true
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                title: tooltipTitle,
-                label: (ctx) => currencyFmt.format(ctx.parsed.y ?? 0)
-              }
-            }
-          },
-          scales: { x: axis, y: axis }
-        }
-      });
-    }
-
-    // Category chart always uses the "focus" set (day if selected, else month)
-    const cat = buildCategorySeries(focusExp);
-    categoryChart = new Chart(categoryCanvas, {
-      type: "doughnut",
-      data: {
-        labels: cat.labels,
-        datasets: [{
-          label: "By category",
-          data: cat.values,
-          borderWidth: 1,
-          backgroundColor: paletteFor(cat.labels)
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: "bottom", labels: { color: "rgba(255,255,255,0.75)" } },
-          tooltip: {
-            callbacks: { label: (ctx) => `${ctx.label}: ${currencyFmt.format(ctx.parsed)}` }
-          }
-        }
-      }
-    });
-  }
-
-  // ---------- Suggestions ----------
-  function buildSuggestions(acc, monthKey, selectedDate) {
-    const out = [];
-    const budget = Number(acc.profile?.monthlyBudget) || 0;
-    const income = Number(acc.profile?.monthlyIncome) || 0;
-
-    const monthExp = monthExpenses(acc, monthKey);
-    const spentMonth = sumExpenses(monthExp);
-
-    const focusIsDay = !!(selectedDate && getMonthKey(selectedDate) === monthKey);
-    const focusExp = focusIsDay ? dayExpenses(acc, selectedDate) : monthExp;
-    const spentFocus = sumExpenses(focusExp);
-
-    if (!monthExp.length) {
-      out.push({
-        title: "Start simple: log 3 categories for a week",
-        body: "Tracking (even imperfectly) reveals patterns fast. Try logging just Food, Transport, and Other for 7 days — then refine.",
-        meta: "Behavior > perfection."
-      });
-      return out;
-    }
-
-    if (budget > 0) {
-      const remaining = budget - spentMonth;
-      const pct = (spentMonth / budget) * 100;
-
-      if (remaining < 0) {
-        out.push({
-          title: "Budget exceeded — switch to “damage control” mode",
-          body: `You’re over by ${currencyFmt.format(Math.abs(remaining))}. For the rest of the month, pause non-essentials and aim for the smallest daily spend you can.`,
-          meta: `Used ${pct.toFixed(1)}% of budget.`
-        });
-      } else if (pct >= 85) {
-        out.push({
-          title: "You’re in the last 15% of your budget",
-          body: `Remaining: ${currencyFmt.format(remaining)}. Consider a “no-spend” day or two to keep the month clean.`,
-          meta: `Used ${pct.toFixed(1)}% of budget.`
-        });
-      } else {
-        out.push({
-          title: "Keep your pace steady",
-          body: `You’ve used ${pct.toFixed(1)}% of your budget. Remaining: ${currencyFmt.format(remaining)}.`,
-          meta: "Steady pacing beats heroic last-minute fixes."
-        });
-      }
-    } else {
-      out.push({
-        title: "Set a budget to unlock better guidance",
-        body: "Budget = the dashboard’s north star. Add one (even approximate) to get stronger suggestions and progress tracking.",
-        meta: "You can edit budget from the sidebar."
-      });
-    }
-
-    const catMap = new Map();
-    for (const e of monthExp) {
-      const c = e.category || "Other";
-      catMap.set(c, (catMap.get(c) || 0) + (Number(e.amount) || 0));
-    }
-    const total = spentMonth || 1;
-    const top = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1])[0];
-
-    if (top) {
-      const share = (top[1] / total) * 100;
-      if (share >= 40) {
-        out.push({
-          title: `Biggest driver: ${top[0]}`,
-          body: `${top[0]} is ${share.toFixed(1)}% of spending this month (${currencyFmt.format(top[1])}). If you cut it by 10–15%, you’ll feel it immediately.`,
-          meta: "Tiny % cuts on the biggest category = real savings."
-        });
-      } else {
-        out.push({
-          title: "Your spending is nicely diversified",
-          body: `Top category is ${top[0]} at ${share.toFixed(1)}%. That’s usually easier to control than “all eggs in one basket.”`,
-          meta: "Keep categories visible; visibility is leverage."
-        });
-      }
-    }
-
-    const small = monthExp.filter(e => (Number(e.amount) || 0) > 0 && (Number(e.amount) || 0) <= 5);
-    if (small.length >= 8) {
-      out.push({
-        title: "Watch the “small leaks”",
-        body: `You have ${small.length} expenses ≤ ${currencyFmt.format(5)} this month. Consider batching them (or setting a weekly cap) to reduce friction spending.`,
-        meta: "Small + frequent = sneaky."
-      });
-    }
-
-    if (income > 0) {
-      const potential = income - spentMonth;
-      if (potential > 0) {
-        out.push({
-          title: "Potential savings (income − spend)",
-          body: `Based on income, you could save about ${currencyFmt.format(potential)} this month. Consider moving a portion to savings early (pay yourself first).`,
-          meta: "Automation beats willpower."
-        });
-      } else {
-        out.push({
-          title: "Income is being fully consumed",
-          body: "This month’s spend is at/above income. If that repeats, it’s worth identifying one category to trim or a fixed weekly cap.",
-          meta: "Awareness is step one."
-        });
-      }
-    }
-
-    if (focusIsDay) {
-      out.push({
-        title: "Day snapshot",
-        body: `Total for ${formatDateLabel(selectedDate)}: ${currencyFmt.format(spentFocus)}. If this was a “heavy day”, balance it with a lighter day tomorrow.`,
-        meta: "One day doesn’t define a month."
-      });
-    }
-
-    return out.slice(0, 6);
-  }
-
-  function renderSuggestions(acc, monthKey, selectedDate) {
-    const items = buildSuggestions(acc, monthKey, selectedDate);
-
-    suggestionsList.innerHTML = "";
-    for (const s of items) {
-      const li = document.createElement("li");
-      li.className = "sugg-item";
-      li.innerHTML = `
-        <span class="sugg-dot" aria-hidden="true"></span>
-        <div>
-          <p class="sugg-title">${escapeHtml(s.title)}</p>
-          <p class="sugg-body">${escapeHtml(s.body)}</p>
-          ${s.meta ? `<div class="sugg-meta">${escapeHtml(s.meta)}</div>` : ""}
-        </div>
-      `;
-      suggestionsList.appendChild(li);
-    }
-
-    if (window.gsap) {
-      gsap.fromTo("#cardSuggestions .sugg-item",
-        { opacity: 0, y: 10 },
-        { opacity: 1, y: 0, duration: 0.35, ease: "power2.out", stagger: 0.05 }
-      );
-    }
-  }
-
-  function escapeHtml(str) {
-    return String(str ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
-
-  // ---------- UI bits ----------
+  // ---------- budget chip ----------
   function setChipByRemaining(remaining, budget) {
     if (budget <= 0) {
-      budgetChip.textContent = "Set a budget";
+      budgetChip.textContent = "Set budget";
       budgetChip.style.borderColor = "rgba(255,255,255,0.16)";
       return;
     }
@@ -759,48 +453,7 @@
     }
   }
 
-  function renderExpensesTable(expenses, onDelete) {
-    const sorted = [...expenses].sort((a, b) => b.date.localeCompare(a.date));
-    expenseTbody.innerHTML = "";
-
-    for (const e of sorted) {
-      const tr = document.createElement("tr");
-
-      const tdDate = document.createElement("td");
-      tdDate.textContent = e.date;
-
-      const tdCat = document.createElement("td");
-      tdCat.textContent = e.category;
-
-      const tdAmt = document.createElement("td");
-      tdAmt.className = "right";
-      tdAmt.textContent = currencyFmt.format(Number(e.amount) || 0);
-
-      const tdAct = document.createElement("td");
-      tdAct.className = "right";
-      const btn = document.createElement("button");
-      btn.className = "row-btn";
-      btn.type = "button";
-      btn.textContent = "Delete";
-      btn.addEventListener("click", () => onDelete(e.id));
-      tdAct.appendChild(btn);
-
-      tr.append(tdDate, tdCat, tdAmt, tdAct);
-      expenseTbody.appendChild(tr);
-    }
-
-    expenseCountChip.textContent = `${sorted.length} item${sorted.length === 1 ? "" : "s"}`;
-  }
-
-  function animateCardPulse(sel) {
-    if (!window.gsap) return;
-    gsap.fromTo(sel, { scale: 0.99 }, { scale: 1, duration: 0.35, ease: "power2.out" });
-  }
-
-  function closeSidebarMobile() { document.body.classList.remove("sidebar-open"); }
-  function openSidebarMobile() { document.body.classList.add("sidebar-open"); }
-
-  // ---------- Calendar ----------
+  // ---------- calendar ----------
   function addMonths(monthKey, delta) {
     const d = monthKeyToDate(monthKey);
     d.setMonth(d.getMonth() + delta);
@@ -809,9 +462,9 @@
     return `${y}-${m}`;
   }
 
-  function renderCalendar(acc) {
-    const monthKey = acc.ui?.calendarMonth || getMonthKey(todayISO());
-    const selectedDate = acc.ui?.selectedDate || null;
+  function renderCalendarMonth(acc) {
+    const monthKey = acc.ui.calendarMonth || getMonthKey(todayISO());
+    const selectedDate = acc.ui.selectedDate || null;
 
     calMonthLabel.textContent = formatMonthLabel(monthKey);
 
@@ -871,6 +524,7 @@
 
         active.ui.calendarMonth = monthKey;
         active.ui.selectedDate = dateStr;
+        active.ui.scope = "month"; // clicking a day implies Month view
         saveStore(store);
 
         dateInput.value = dateStr;
@@ -889,7 +543,588 @@
     }
   }
 
-  // ---------- Accounts UI ----------
+  function renderMonthListAll(acc) {
+    const summary = getMonthlySummary(acc);
+    const desc = [...summary].sort((a,b) => b.monthKey.localeCompare(a.monthKey)); // newest first
+
+    monthList.innerHTML = "";
+    if (!desc.length) {
+      monthList.innerHTML = `<div class="muted">No months yet.</div>`;
+      return;
+    }
+
+    for (const row of desc) {
+      const spent = row.spent;
+      const budget = row.budget;
+      const pct = budget > 0 ? clamp((spent / budget) * 100, 0, 999) : 0;
+      const remaining = budget > 0 ? (budget - spent) : 0;
+
+      const el = document.createElement("div");
+      el.className = "month-row";
+      el.innerHTML = `
+        <div class="month-top">
+          <div class="month-name">${escapeHtml(formatMonthLabel(row.monthKey))}</div>
+          <div class="month-meta">
+            Spent ${escapeHtml(currencyFmt.format(spent))} • Budget ${escapeHtml(currencyFmt.format(budget))}
+          </div>
+        </div>
+        <div class="month-bar"><i style="width:${budget > 0 ? clamp(pct,0,100).toFixed(1) : 0}%"></i></div>
+        <div class="month-meta">
+          ${budget > 0
+            ? `Remaining ${escapeHtml(currencyFmt.format(Math.max(0, remaining)))} • ${escapeHtml(clamp(pct,0,999).toFixed(1))}% used`
+            : `No budget set for this month`}
+        </div>
+      `;
+
+      el.addEventListener("click", () => {
+        const store = ensureStoreIntegrity(loadStore());
+        const active = getActiveAccount(store);
+        if (!active) return;
+        active.ui.scope = "month";
+        active.ui.calendarMonth = row.monthKey;
+        active.ui.selectedDate = null;
+        saveStore(store);
+        rerenderAll(store);
+        showToast(`Opened ${formatMonthLabel(row.monthKey)}.`);
+      });
+
+      monthList.appendChild(el);
+    }
+  }
+
+  // ---------- charts ----------
+  function destroyCharts() {
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
+    if (categoryChart) { categoryChart.destroy(); categoryChart = null; }
+  }
+
+  function buildMonthDailyTotals(monthKey, monthExp) {
+    const dim = daysInMonthByKey(monthKey);
+    const daily = Array(dim).fill(0);
+
+    for (const e of monthExp) {
+      const day = Number(String(e.date).slice(8, 10));
+      if (!Number.isFinite(day) || day < 1 || day > dim) continue;
+      daily[day - 1] += (Number(e.amount) || 0);
+    }
+
+    const labels = Array.from({ length: dim }, (_, i) => String(i + 1));
+    const dates = Array.from({ length: dim }, (_, i) => dateForDayIndex(monthKey, i + 1));
+    return { labels, dates, daily };
+  }
+
+  function cumulative(arr) {
+    const out = [];
+    let run = 0;
+    for (const v of arr) { run += (Number(v) || 0); out.push(run); }
+    return out;
+  }
+
+  function buildCategorySeries(expenses) {
+    const map = new Map();
+    for (const e of expenses) {
+      const c = String(e.category || "Other").trim() || "Other";
+      map.set(c, (map.get(c) || 0) + (Number(e.amount) || 0));
+    }
+    const labels = Array.from(map.keys()).sort();
+    const values = labels.map((l) => map.get(l));
+    return { labels, values };
+  }
+
+  function paletteFor(labels) {
+    const base = THEME.a.h;
+    return labels.map((_, i) => `hsla(${(base + i * 48) % 360}, ${clamp(THEME.a.s, 55, 95)}%, ${clamp(THEME.a.l - 8, 38, 68)}%, 0.75)`);
+  }
+
+  function renderChartsForScope(acc) {
+    destroyCharts();
+
+    const scope = acc.ui.scope || "month";
+    const monthKey = acc.ui.calendarMonth || getMonthKey(todayISO());
+    const selectedDate = acc.ui.selectedDate || null;
+    const chartMode = acc.ui.chartMode || "daily";
+
+    // Update toggle text depending on scope
+    const dailyBtn = chartModeButtons.find(b => b.dataset.mode === "daily");
+    if (dailyBtn) dailyBtn.textContent = (scope === "all" ? "Monthly" : "Daily");
+
+    chartModeButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.mode === chartMode));
+
+    const axis = {
+      ticks: { color: "rgba(255,255,255,0.65)" },
+      grid: { color: "rgba(255,255,255,0.08)" }
+    };
+
+    if (scope === "month") {
+      const fin = getMonthFinance(acc, monthKey);
+      const budget = fin.budget;
+
+      const monthExp = monthExpenses(acc, monthKey);
+      const series = buildMonthDailyTotals(monthKey, monthExp);
+
+      const isDay = !!(selectedDate && getMonthKey(selectedDate) === monthKey);
+      const focusExp = isDay ? dayExpenses(acc, selectedDate) : monthExp;
+
+      chartMonthChip.textContent = `${formatMonthLabel(monthKey)} • ${chartMode === "cumulative" ? "Cumulative" : "Daily"}`;
+      trendTitle.textContent = (chartMode === "cumulative")
+        ? `Cumulative spend vs budget pace • ${formatMonthLabel(monthKey)}`
+        : `Daily spend • ${formatMonthLabel(monthKey)}`;
+      categoryTitle.textContent = isDay ? "By category (selected day)" : "By category (month)";
+
+      const tooltipTitle = (items) => {
+        const idx = items?.[0]?.dataIndex ?? 0;
+        const dateStr = series.dates[idx] || "";
+        return dateStr ? formatDateLabel(dateStr) : "";
+      };
+
+      // Trend chart
+      if (chartMode === "cumulative") {
+        const cumSpend = cumulative(series.daily);
+        const dim = series.daily.length || 1;
+
+        const datasets = [{
+          label: "Cumulative expenses",
+          data: cumSpend,
+          tension: 0.28,
+          pointRadius: 2.5,
+          borderWidth: 2,
+          borderColor: hsla(THEME.a, 0.95),
+          backgroundColor: hsla(THEME.a, 0.16),
+          pointBackgroundColor: hsla(THEME.b, 0.9),
+          pointBorderColor: hsla(THEME.a, 0.9),
+          fill: true
+        }];
+
+        if (budget > 0) {
+          const cumBudget = series.daily.map((_, i) => budget * ((i + 1) / dim));
+          datasets.push({
+            label: "Cumulative budget pace",
+            data: cumBudget,
+            tension: 0.15,
+            pointRadius: 0,
+            borderWidth: 2,
+            borderDash: [7, 6],
+            borderColor: "rgba(255,255,255,0.55)",
+            backgroundColor: "transparent",
+            fill: false
+          });
+        }
+
+        trendChart = new Chart(trendCanvas, {
+          type: "line",
+          data: { labels: series.labels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: true, labels: { color: "rgba(255,255,255,0.75)" } },
+              tooltip: {
+                callbacks: {
+                  title: tooltipTitle,
+                  label: (ctx) => `${ctx.dataset.label}: ${currencyFmt.format(ctx.parsed.y ?? 0)}`
+                }
+              }
+            },
+            scales: {
+              x: axis,
+              y: {
+                ...axis,
+                ticks: {
+                  ...axis.ticks,
+                  callback: (v) => {
+                    try { return currencyFmt.format(Number(v) || 0); } catch { return v; }
+                  }
+                }
+              }
+            }
+          }
+        });
+      } else {
+        trendChart = new Chart(trendCanvas, {
+          type: "line",
+          data: {
+            labels: series.labels,
+            datasets: [{
+              label: "Daily spend",
+              data: series.daily,
+              tension: 0.35,
+              pointRadius: 3,
+              borderWidth: 2,
+              borderColor: hsla(THEME.a, 0.95),
+              backgroundColor: hsla(THEME.a, 0.18),
+              pointBackgroundColor: hsla(THEME.b, 0.9),
+              pointBorderColor: hsla(THEME.a, 0.9),
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { title: tooltipTitle, label: (ctx) => currencyFmt.format(ctx.parsed.y ?? 0) } }
+            },
+            scales: { x: axis, y: axis }
+          }
+        });
+      }
+
+      // Category chart
+      const cat = buildCategorySeries(focusExp);
+      categoryChart = new Chart(categoryCanvas, {
+        type: "doughnut",
+        data: {
+          labels: cat.labels,
+          datasets: [{ label: "By category", data: cat.values, borderWidth: 1, backgroundColor: paletteFor(cat.labels) }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { color: "rgba(255,255,255,0.75)" } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${currencyFmt.format(ctx.parsed)}` } }
+          }
+        }
+      });
+
+      return;
+    }
+
+    // scope === "all" (monthly series)
+    const summary = getMonthlySummary(acc);
+    const monthsAsc = summary.map(s => s.monthKey);
+
+    const labels = monthsAsc.map(mk => {
+      const d = monthKeyToDate(mk);
+      return new Intl.DateTimeFormat(undefined, { month: "short", year: "2-digit" }).format(d);
+    });
+
+    const spentSeries = summary.map(s => s.spent);
+    const budgetSeries = summary.map(s => s.budget);
+
+    chartMonthChip.textContent = `All months • ${chartMode === "cumulative" ? "Cumulative" : "Monthly"}`;
+    trendTitle.textContent = (chartMode === "cumulative")
+      ? `Cumulative spend vs cumulative budget • All months`
+      : `Monthly spend vs monthly budget • All months`;
+    categoryTitle.textContent = "By category (all months)";
+
+    const tooltipTitle = (items) => {
+      const idx = items?.[0]?.dataIndex ?? 0;
+      const mk = monthsAsc[idx];
+      return mk ? formatMonthLabel(mk) : "";
+    };
+
+    let trendDatasets = [];
+    if (chartMode === "cumulative") {
+      const cumSpent = cumulative(spentSeries);
+      const cumBudget = cumulative(budgetSeries);
+
+      trendDatasets = [
+        {
+          label: "Cumulative expenses",
+          data: cumSpent,
+          tension: 0.25,
+          pointRadius: 2.5,
+          borderWidth: 2,
+          borderColor: hsla(THEME.a, 0.95),
+          backgroundColor: hsla(THEME.a, 0.16),
+          fill: true
+        },
+        {
+          label: "Cumulative budget",
+          data: cumBudget,
+          tension: 0.15,
+          pointRadius: 0,
+          borderWidth: 2,
+          borderDash: [7, 6],
+          borderColor: "rgba(255,255,255,0.55)",
+          backgroundColor: "transparent",
+          fill: false
+        }
+      ];
+    } else {
+      trendDatasets = [
+        {
+          label: "Monthly expenses",
+          data: spentSeries,
+          tension: 0.25,
+          pointRadius: 3,
+          borderWidth: 2,
+          borderColor: hsla(THEME.a, 0.95),
+          backgroundColor: hsla(THEME.a, 0.14),
+          fill: true
+        },
+        {
+          label: "Monthly budget",
+          data: budgetSeries,
+          tension: 0.15,
+          pointRadius: 0,
+          borderWidth: 2,
+          borderDash: [7, 6],
+          borderColor: "rgba(255,255,255,0.55)",
+          backgroundColor: "transparent",
+          fill: false
+        }
+      ];
+    }
+
+    trendChart = new Chart(trendCanvas, {
+      type: "line",
+      data: { labels, datasets: trendDatasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color: "rgba(255,255,255,0.75)" } },
+          tooltip: {
+            callbacks: {
+              title: tooltipTitle,
+              label: (ctx) => `${ctx.dataset.label}: ${currencyFmt.format(ctx.parsed.y ?? 0)}`
+            }
+          }
+        },
+        scales: {
+          x: axis,
+          y: {
+            ...axis,
+            ticks: {
+              ...axis.ticks,
+              callback: (v) => {
+                try { return currencyFmt.format(Number(v) || 0); } catch { return v; }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const allExp = acc.expenses || [];
+    const cat = buildCategorySeries(allExp);
+    categoryChart = new Chart(categoryCanvas, {
+      type: "doughnut",
+      data: { labels: cat.labels, datasets: [{ label: "By category", data: cat.values, borderWidth: 1, backgroundColor: paletteFor(cat.labels) }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom", labels: { color: "rgba(255,255,255,0.75)" } },
+          tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${currencyFmt.format(ctx.parsed)}` } }
+        }
+      }
+    });
+  }
+
+  // ---------- suggestions ----------
+  function buildSuggestions(acc) {
+    const scope = acc.ui.scope || "month";
+    const monthKey = acc.ui.calendarMonth || getMonthKey(todayISO());
+    const selectedDate = acc.ui.selectedDate || null;
+
+    const out = [];
+
+    if (scope === "month") {
+      const fin = getMonthFinance(acc, monthKey);
+      const budget = fin.budget;
+      const monthExp = monthExpenses(acc, monthKey);
+      const spentMonth = sumExpenses(monthExp);
+      const remaining = budget > 0 ? budget - spentMonth : 0;
+
+      const isDay = !!(selectedDate && getMonthKey(selectedDate) === monthKey);
+      const focusExp = isDay ? dayExpenses(acc, selectedDate) : monthExp;
+      const spentFocus = sumExpenses(focusExp);
+
+      if (!monthExp.length) {
+        out.push({
+          title: "Start simple: log for 7 days",
+          body: "Track anything for a week (even messy). Patterns show up fast.",
+          meta: "Consistency > perfection."
+        });
+        return out;
+      }
+
+      if (budget <= 0) {
+        out.push({
+          title: "Set this month’s budget",
+          body: "Budgets are monthly here. Tap “Set month budget” and enter a budget for the month you’re viewing.",
+          meta: `Viewing ${formatMonthLabel(monthKey)}.`
+        });
+      } else {
+        const pct = (spentMonth / budget) * 100;
+        if (remaining < 0) {
+          out.push({
+            title: "Over budget — stabilize the month",
+            body: `You’re over by ${currencyFmt.format(Math.abs(remaining))}. Pause non-essentials and keep the rest of month light.`,
+            meta: `Used ${pct.toFixed(1)}% of budget.`
+          });
+        } else if (pct >= 85) {
+          out.push({
+            title: "Last 15% of budget",
+            body: `Remaining: ${currencyFmt.format(Math.max(0, remaining))}. Try 1–2 no-spend days.`,
+            meta: `Used ${pct.toFixed(1)}% of budget.`
+          });
+        } else {
+          out.push({
+            title: "Good pacing",
+            body: `Used ${pct.toFixed(1)}% so far. Remaining: ${currencyFmt.format(Math.max(0, remaining))}.`,
+            meta: "Keep the pace steady."
+          });
+        }
+      }
+
+      // Top category
+      const map = new Map();
+      for (const e of monthExp) {
+        const c = String(e.category || "Other").trim() || "Other";
+        map.set(c, (map.get(c) || 0) + (Number(e.amount) || 0));
+      }
+      const top = Array.from(map.entries()).sort((a,b)=>b[1]-a[1])[0];
+      if (top) {
+        const share = spentMonth > 0 ? (top[1] / spentMonth) * 100 : 0;
+        out.push({
+          title: `Biggest driver: ${top[0]}`,
+          body: `${top[0]} is ${share.toFixed(1)}% this month (${currencyFmt.format(top[1])}). Cutting 10% here is real money.`,
+          meta: "Cut big categories first."
+        });
+      }
+
+      if (isDay) {
+        out.push({
+          title: "Day snapshot",
+          body: `Total for ${formatDateLabel(selectedDate)}: ${currencyFmt.format(spentFocus)}. Balance it with a lighter day.`,
+          meta: "One day doesn’t define the month."
+        });
+      }
+
+      return out.slice(0, 6);
+    }
+
+    // scope === all
+    const summary = getMonthlySummary(acc);
+    const totalSpent = summary.reduce((a, s) => a + (Number(s.spent) || 0), 0);
+    const totalBudget = summary.reduce((a, s) => a + (Number(s.budget) || 0), 0);
+    const trackedMonths = summary.length;
+
+    if (trackedMonths === 0) {
+      out.push({
+        title: "Add your first month budget",
+        body: "Budgets are stored per month. Start with this month, then add others as needed.",
+        meta: "Month budgets unlock better analytics."
+      });
+      return out;
+    }
+
+    if (totalBudget <= 0) {
+      out.push({
+        title: "No budgets across months yet",
+        body: "You’re in All months view, but budgets are 0. Set budgets per month to see a meaningful cumulative budget line.",
+        meta: `Tracked months: ${trackedMonths}.`
+      });
+    } else {
+      const remaining = totalBudget - totalSpent;
+      const pct = (totalSpent / totalBudget) * 100;
+
+      if (remaining < 0) {
+        out.push({
+          title: "Cumulative over budget",
+          body: `Across all tracked months you’re over by ${currencyFmt.format(Math.abs(remaining))}. Review the worst month first.`,
+          meta: `Used ${pct.toFixed(1)}% cumulatively.`
+        });
+      } else {
+        out.push({
+          title: "Cumulative summary looks solid",
+          body: `Spent ${currencyFmt.format(totalSpent)} out of ${currencyFmt.format(totalBudget)}.`,
+          meta: `Remaining: ${currencyFmt.format(Math.max(0, remaining))}.`
+        });
+      }
+    }
+
+    // Most expensive month
+    const worst = [...summary].sort((a,b)=>b.spent-a.spent)[0];
+    if (worst) {
+      out.push({
+        title: `Heaviest month: ${formatMonthLabel(worst.monthKey)}`,
+        body: `Spent ${currencyFmt.format(worst.spent)}. Budget was ${currencyFmt.format(worst.budget)}.`,
+        meta: "Tap it in the month list to drill down."
+      });
+    }
+
+    // Top category overall
+    const cat = buildCategorySeries(acc.expenses || []);
+    const pairs = cat.labels.map((l, i) => [l, cat.values[i]]);
+    pairs.sort((a,b)=>b[1]-a[1]);
+    const topCat = pairs[0];
+    if (topCat) {
+      out.push({
+        title: `Top category overall: ${topCat[0]}`,
+        body: `Total ${currencyFmt.format(topCat[1])} across all months. Consider a simple cap for this category.`,
+        meta: "Caps beat vibes."
+      });
+    }
+
+    return out.slice(0, 6);
+  }
+
+  function renderSuggestions(acc) {
+    const items = buildSuggestions(acc);
+    suggestionsList.innerHTML = "";
+    for (const s of items) {
+      const li = document.createElement("li");
+      li.className = "sugg-item";
+      li.innerHTML = `
+        <span class="sugg-dot" aria-hidden="true"></span>
+        <div>
+          <p class="sugg-title">${escapeHtml(s.title)}</p>
+          <p class="sugg-body">${escapeHtml(s.body)}</p>
+          ${s.meta ? `<div class="sugg-meta">${escapeHtml(s.meta)}</div>` : ""}
+        </div>
+      `;
+      suggestionsList.appendChild(li);
+    }
+
+    if (window.gsap) {
+      gsap.fromTo("#cardSuggestions .sugg-item",
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, duration: 0.35, ease: "power2.out", stagger: 0.05 }
+      );
+    }
+  }
+
+  // ---------- expense table ----------
+  function renderExpensesTable(expenses, onDelete, cap = 200) {
+    const sorted = [...expenses].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    const shown = sorted.slice(0, cap);
+
+    expenseTbody.innerHTML = "";
+    for (const e of shown) {
+      const tr = document.createElement("tr");
+
+      const tdDate = document.createElement("td");
+      tdDate.textContent = e.date;
+
+      const tdCat = document.createElement("td");
+      tdCat.textContent = e.category;
+
+      const tdAmt = document.createElement("td");
+      tdAmt.className = "right";
+      tdAmt.textContent = currencyFmt.format(Number(e.amount) || 0);
+
+      const tdAct = document.createElement("td");
+      tdAct.className = "right";
+      const btn = document.createElement("button");
+      btn.className = "row-btn";
+      btn.type = "button";
+      btn.textContent = "Delete";
+      btn.addEventListener("click", () => onDelete(e.id));
+      tdAct.appendChild(btn);
+
+      tr.append(tdDate, tdCat, tdAmt, tdAct);
+      expenseTbody.appendChild(tr);
+    }
+
+    expenseCountChip.textContent = `${sorted.length} item${sorted.length === 1 ? "" : "s"}`;
+  }
+
+  // ---------- accounts UI ----------
   function renderAccountSelect(store) {
     const ids = Object.keys(store.accounts);
     accountSelect.innerHTML = "";
@@ -911,6 +1146,10 @@
       const acc = store.accounts[id];
       const isActive = id === store.activeAccountId;
 
+      const summary = getMonthlySummary(acc);
+      const tracked = summary.length;
+      const totalSpent = summary.reduce((a,s)=>a+s.spent,0);
+
       const row = document.createElement("div");
       row.className = "acc-row";
 
@@ -923,9 +1162,8 @@
 
       const sub = document.createElement("div");
       sub.className = "acc-sub";
-      const b = Number(acc.profile?.monthlyBudget) || 0;
       const n = acc.expenses?.length || 0;
-      sub.textContent = `Budget: ${currencyFmt.format(b)} • Entries: ${n}`;
+      sub.textContent = `Tracked months: ${tracked} • Entries: ${n} • Total spent: ${currencyFmt.format(totalSpent)}`;
 
       meta.appendChild(name);
       meta.appendChild(sub);
@@ -994,27 +1232,381 @@
       );
     }
   }
-
   function closeAccountsModal() { accountsModal.classList.add("hidden"); }
 
-  // ---------- Views ----------
-  function goToDashboard() {
-    welcomeView.classList.add("hidden");
-    dashboardView.classList.remove("hidden");
+  // ---------- month modal ----------
+  function openMonthModal() {
+    const store = ensureStoreIntegrity(loadStore());
+    const acc = getActiveAccount(store);
+    if (!acc) return;
 
+    const mk = acc.ui.calendarMonth || getMonthKey(todayISO());
+    const fin = getMonthFinance(acc, mk);
+
+    editMonthLabel.textContent = formatMonthLabel(mk);
+    monthAccountName.value = acc.profile?.name || "";
+    monthBudgetInput.value = String(fin.budget || "");
+    monthIncomeInput.value = String(fin.income || "");
+
+    monthModal.classList.remove("hidden");
     if (window.gsap) {
-      gsap.set(["#sidebar", ".topbar", ".card"], { opacity: 0, y: 14 });
-      gsap.to("#sidebar", { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" });
-      gsap.to(".topbar", { opacity: 1, y: 0, duration: 0.55, ease: "power2.out", delay: 0.05 });
-      gsap.to(".card", { opacity: 1, y: 0, duration: 0.55, ease: "power2.out", stagger: 0.06, delay: 0.08 });
+      gsap.fromTo("#monthModal .modal-panel",
+        { opacity: 0, y: 16, scale: 0.98 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.25, ease: "power2.out" }
+      );
     }
   }
 
-  function goToWelcome() {
-    dashboardView.classList.add("hidden");
-    welcomeView.classList.remove("hidden");
+  // ---------- pdf ----------
+  function downloadPdfReport(){
+    const store = ensureStoreIntegrity(loadStore());
+    const acc = getActiveAccount(store);
+    if (!acc) return showToast("No active account.");
+    if (!window.jspdf?.jsPDF) return showToast("PDF library not loaded.");
+
+    const scope = acc.ui.scope || "month";
+    const mk = acc.ui.calendarMonth || getMonthKey(todayISO());
+    const sd = acc.ui.selectedDate || null;
+    const isDay = scope === "month" && sd && getMonthKey(sd) === mk;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+
+    const fmt = (n) => {
+      try { return currencyFmt.format(Number(n)||0); } catch { return String(n); }
+    };
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("Lumina Wealth", 40, 46);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+
+    const title = scope === "all"
+      ? "All-months Spending Report"
+      : (isDay ? `Daily Spending Report — ${formatDateLabel(sd)}` : `Monthly Spending Report — ${formatMonthLabel(mk)}`);
+
+    doc.text(title, 40, 70);
+    doc.text(`Account: ${acc.profile?.name || "—"}`, 40, 90);
+
+    let y = 118;
+
+    if (scope === "month") {
+      const fin = getMonthFinance(acc, mk);
+      const budget = fin.budget;
+      const income = fin.income;
+
+      const monthExp = monthExpenses(acc, mk);
+      const spentMonth = sumExpenses(monthExp);
+      const remaining = budget > 0 ? Math.max(0, budget - spentMonth) : 0;
+
+      const focusExp = isDay ? dayExpenses(acc, sd) : monthExp;
+      const spentFocus = sumExpenses(focusExp);
+
+      const summaryLines = [
+        `Month: ${formatMonthLabel(mk)}`,
+        `Income (month): ${fmt(income)}`,
+        `Budget (month): ${fmt(budget)}`,
+        `Spent (month): ${fmt(spentMonth)}`,
+        `Remaining (month): ${fmt(remaining)}`,
+        isDay ? `Spent (selected day): ${fmt(spentFocus)}` : ""
+      ].filter(Boolean);
+
+      for (const line of summaryLines) { doc.text(line, 40, y); y += 16; }
+
+      const rows = [...focusExp]
+        .sort((a,b)=>String(a.date).localeCompare(String(b.date)))
+        .map(e => [e.date, String(e.category||""), fmt(e.amount)]);
+
+      doc.autoTable({
+        head: [["Date", "Category", "Amount"]],
+        body: rows.length ? rows : [["—", "No expenses", "—"]],
+        startY: y + 10,
+        styles: { font: "helvetica", fontSize: 10 },
+        headStyles: { fillColor: [20, 20, 28] },
+        theme: "grid"
+      });
+      y = doc.lastAutoTable.finalY + 18;
+
+    } else {
+      const summary = getMonthlySummary(acc);
+      const totalSpent = summary.reduce((a,s)=>a+s.spent,0);
+      const totalBudget = summary.reduce((a,s)=>a+s.budget,0);
+      const remaining = totalBudget > 0 ? Math.max(0, totalBudget - totalSpent) : 0;
+
+      const incomeTotal = summary.reduce((a,s)=>{
+        const fin = getMonthFinance(acc, s.monthKey);
+        return a + (fin.income || 0);
+      }, 0);
+
+      const summaryLines = [
+        `Tracked months: ${summary.length}`,
+        `Total income (tracked): ${fmt(incomeTotal)}`,
+        `Total budget (tracked): ${fmt(totalBudget)}`,
+        `Total spent: ${fmt(totalSpent)}`,
+        `Total remaining: ${fmt(remaining)}`
+      ];
+      for (const line of summaryLines) { doc.text(line, 40, y); y += 16; }
+
+      const monthlyRows = summary
+        .slice()
+        .sort((a,b)=>a.monthKey.localeCompare(b.monthKey))
+        .map(s => [
+          formatMonthLabel(s.monthKey),
+          fmt(s.budget),
+          fmt(s.spent),
+          fmt(Math.max(0, (s.budget || 0) - (s.spent || 0)))
+        ]);
+
+      doc.autoTable({
+        head: [["Month", "Budget", "Spent", "Remaining"]],
+        body: monthlyRows.length ? monthlyRows : [["—", "—", "—", "—"]],
+        startY: y + 10,
+        styles: { font: "helvetica", fontSize: 10 },
+        headStyles: { fillColor: [20, 20, 28] },
+        theme: "grid"
+      });
+      y = doc.lastAutoTable.finalY + 18;
+
+      // Add last 50 expenses
+      const all = [...(acc.expenses || [])].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0, 50);
+      const expRows = all.map(e => [e.date, String(e.category||""), fmt(e.amount)]);
+      doc.autoTable({
+        head: [["Date", "Category", "Amount"]],
+        body: expRows.length ? expRows : [["—", "No expenses", "—"]],
+        startY: y + 6,
+        styles: { font: "helvetica", fontSize: 10 },
+        headStyles: { fillColor: [20, 20, 28] },
+        theme: "grid"
+      });
+      y = doc.lastAutoTable.finalY + 18;
+    }
+
+    // Add charts images
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 40;
+    const imgW = pageWidth - margin * 2;
+    const imgH = 160;
+
+    function ensureSpace(heightNeeded){
+      const pageHeight = doc.internal.pageSize.getHeight();
+      if (y + heightNeeded > pageHeight - 40) {
+        doc.addPage();
+        y = 50;
+      }
+    }
+
+    try{
+      const trendImg = trendCanvas?.toDataURL("image/png", 1.0);
+      if (trendImg) {
+        ensureSpace(imgH + 26);
+        doc.setFont("helvetica","bold");
+        doc.setFontSize(12);
+        doc.text("Trend Chart", margin, y);
+        y += 10;
+        doc.addImage(trendImg, "PNG", margin, y, imgW, imgH);
+        y += imgH + 18;
+      }
+    }catch{/* ignore */}
+
+    try{
+      const catImg = categoryCanvas?.toDataURL("image/png", 1.0);
+      if (catImg) {
+        ensureSpace(imgH + 26);
+        doc.setFont("helvetica","bold");
+        doc.setFontSize(12);
+        doc.text("Category Chart", margin, y);
+        y += 10;
+        doc.addImage(catImg, "PNG", margin, y, imgW, imgH);
+        y += imgH + 10;
+      }
+    }catch{/* ignore */}
+
+    const safeName = String(acc.profile?.name || "Account").replace(/[^\w\-]+/g, "_");
+    const suffix = scope === "all" ? "ALL_MONTHS" : (acc.ui.calendarMonth || getMonthKey(todayISO()));
+    doc.save(`Lumina_Wealth_${safeName}_${suffix}.pdf`);
   }
 
+  // ---------- rerender ----------
+  function rerenderAll(store) {
+    store = ensureStoreIntegrity(store);
+
+    applyThemeHex(store.settings.themeHex || DEFAULT_THEME_HEX);
+    if (themeColorInput) themeColorInput.value = THEME.hex;
+
+    const acc = getActiveAccount(store);
+    if (!acc) return;
+
+    renderAccountSelect(store);
+
+    helloName.textContent = acc.profile?.name || "friend";
+    avatarInitials.textContent = initials(acc.profile?.name || "");
+
+    // Scope toggle UI
+    const scope = acc.ui.scope || "month";
+    scopeButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.scope === scope));
+
+    // Calendar vs month list
+    if (scope === "month") {
+      calendarTitle.textContent = "Calendar";
+      calNav.classList.remove("hidden");
+      calendarWrap.classList.remove("hidden");
+      monthListWrap.classList.add("hidden");
+    } else {
+      calendarTitle.textContent = "Monthly History";
+      calNav.classList.add("hidden");
+      calendarWrap.classList.add("hidden");
+      monthListWrap.classList.remove("hidden");
+    }
+
+    // Update income input depending on scope
+    const mk = acc.ui.calendarMonth || getMonthKey(todayISO());
+    const fin = getMonthFinance(acc, mk);
+
+    if (scope === "month") {
+      incomeLabel.textContent = "Monthly Income";
+      incomeInput.disabled = false;
+      incomeInput.value = String(fin.income || "");
+    } else {
+      incomeLabel.textContent = "Total Income";
+      incomeInput.disabled = true;
+      const summary = getMonthlySummary(acc);
+      const totalIncome = summary.reduce((a,s)=>{
+        const f = getMonthFinance(acc, s.monthKey);
+        return a + (f.income || 0);
+      }, 0);
+      incomeInput.value = totalIncome ? String(totalIncome) : "";
+    }
+
+    // Budget calculations by scope
+    if (scope === "month") {
+      const monthExp = monthExpenses(acc, mk);
+      const spentMonth = sumExpenses(monthExp);
+      const budget = fin.budget;
+
+      activeMonthLabel.textContent = formatMonthLabel(mk);
+
+      const remaining = budget > 0 ? Math.max(0, budget - spentMonth) : 0;
+      budgetValue.textContent = currencyFmt.format(budget);
+      spentValue.textContent = currencyFmt.format(spentMonth);
+      remainingValue.textContent = currencyFmt.format(remaining);
+
+      setChipByRemaining(budget > 0 ? (budget - spentMonth) : 0, budget);
+
+      const pctLeft = budget > 0 ? clamp((remaining / budget) * 100, 0, 100) : 0;
+      progressBar.style.width = `${pctLeft.toFixed(1)}%`;
+      progressPct.textContent = budget > 0 ? `${pctLeft.toFixed(1)}% left` : `—`;
+
+      trackedRow.classList.add("hidden");
+
+      // Day selection cumulative row
+      const sd = acc.ui.selectedDate;
+      const isDay = !!(sd && getMonthKey(sd) === mk);
+
+      if (isDay) {
+        const dayN = Number(String(sd).slice(8, 10));
+        const dim = daysInMonthByKey(mk);
+
+        const cumSpent = monthExp
+          .filter(e => String(e.date) <= String(sd))
+          .reduce((a,e)=>a+(Number(e.amount)||0),0);
+
+        cumLabel.textContent = `Cumulative to day ${dayN}`;
+        if (budget > 0) {
+          const cumBudget = budget * (dayN / Math.max(1, dim));
+          cumValue.textContent = `${currencyFmt.format(cumSpent)} • pace budget ${currencyFmt.format(cumBudget)}`;
+        } else {
+          cumValue.textContent = currencyFmt.format(cumSpent);
+        }
+        cumRow.classList.remove("hidden");
+      } else {
+        cumRow.classList.add("hidden");
+      }
+
+      // Expenses table focus
+      let focusExp = monthExp;
+      let focusLabel = formatMonthLabel(mk);
+
+      if (isDay) {
+        focusExp = dayExpenses(acc, sd);
+        focusLabel = formatDateLabel(sd);
+        totalLabel.textContent = "Day total";
+        totalHint.textContent = "You’re viewing a single day. Clear day to see the whole month.";
+        dateInput.value = sd;
+      } else {
+        totalLabel.textContent = "Month total";
+        totalHint.textContent = "You’re viewing this month. Tap a day to drill down.";
+        if (!dateInput.value) dateInput.value = todayISO();
+      }
+
+      viewChip.textContent = `Viewing: ${focusLabel}`;
+      monthTotal.textContent = currencyFmt.format(sumExpenses(focusExp));
+
+      renderExpensesTable(focusExp, (id) => {
+        const s = ensureStoreIntegrity(loadStore());
+        const a = getActiveAccount(s);
+        if (!a) return;
+        a.expenses = a.expenses.filter((e) => e.id !== id);
+        saveStore(s);
+        rerenderAll(s);
+        showToast("Expense deleted.");
+      });
+
+      renderCalendarMonth(acc);
+
+    } else {
+      // ALL MONTHS
+      const summary = getMonthlySummary(acc);
+      const totalSpent = summary.reduce((a,s)=>a+s.spent,0);
+      const totalBudget = summary.reduce((a,s)=>a+s.budget,0);
+      const remaining = totalBudget > 0 ? Math.max(0, totalBudget - totalSpent) : 0;
+
+      activeMonthLabel.textContent = "All months";
+      budgetValue.textContent = currencyFmt.format(totalBudget);
+      spentValue.textContent = currencyFmt.format(totalSpent);
+      remainingValue.textContent = currencyFmt.format(remaining);
+
+      setChipByRemaining(totalBudget > 0 ? (totalBudget - totalSpent) : 0, totalBudget);
+
+      const pctLeft = totalBudget > 0 ? clamp((remaining / totalBudget) * 100, 0, 100) : 0;
+      progressBar.style.width = `${pctLeft.toFixed(1)}%`;
+      progressPct.textContent = totalBudget > 0 ? `${pctLeft.toFixed(1)}% left` : `—`;
+
+      // Show tracked months row
+      trackedValue.textContent = `${summary.length}`;
+      trackedRow.classList.remove("hidden");
+
+      // No day cumulative row in all-months
+      cumRow.classList.add("hidden");
+      acc.ui.selectedDate = null;
+
+      // Expenses: show all (capped)
+      const all = acc.expenses || [];
+      viewChip.textContent = `Viewing: All months`;
+      totalLabel.textContent = "All-time total";
+      totalHint.textContent = "You’re viewing all months together. Month list lets you drill down.";
+      monthTotal.textContent = currencyFmt.format(sumExpenses(all));
+
+      renderExpensesTable(all, (id) => {
+        const s = ensureStoreIntegrity(loadStore());
+        const a = getActiveAccount(s);
+        if (!a) return;
+        a.expenses = a.expenses.filter((e) => e.id !== id);
+        saveStore(s);
+        rerenderAll(s);
+        showToast("Expense deleted.");
+      }, 200);
+
+      renderMonthListAll(acc);
+    }
+
+    renderCategoryDatalist(acc);
+    renderChartsForScope(acc);
+    renderSuggestions(acc);
+  }
+
+  // ---------- modal close wiring ----------
   function wireModalClose(modalEl) {
     modalEl.addEventListener("click", (e) => {
       const t = e.target;
@@ -1022,171 +1614,128 @@
       if (t && t.classList && t.classList.contains("modal-backdrop")) modalEl.classList.add("hidden");
     });
   }
+  wireModalClose(accountsModal);
+  wireModalClose(monthModal);
 
-  function openProfileModal() {
-    const store = ensureStoreIntegrity(loadStore());
-    const acc = getActiveAccount(store);
-    if (!acc) return;
-
-    profileName.value = acc.profile?.name || "";
-    profileBudget.value = acc.profile?.monthlyBudget ? String(acc.profile.monthlyBudget) : "";
-    profileModal.classList.remove("hidden");
-
-    if (window.gsap) {
-      gsap.fromTo("#profileModal .modal-panel",
-        { opacity: 0, y: 16, scale: 0.98 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.25, ease: "power2.out" }
-      );
-    }
-  }
-
-  // ---------- Main render ----------
-  function rerenderAll(store) {
-    store = ensureStoreIntegrity(store);
-
-    // Apply theme & sync picker
-    applyThemeHex(store.settings.themeHex || DEFAULT_THEME_HEX);
-    if (themeColorInput) themeColorInput.value = THEME.hex;
-
-    const acc = getActiveAccount(store);
-    if (!acc) return;
-
-    // Identity
-    const name = acc.profile?.name || "friend";
-    helloName.textContent = name;
-    avatarInitials.textContent = initials(name);
-
-    // Income
-    incomeInput.value = acc.profile?.monthlyIncome ? String(acc.profile.monthlyIncome) : "";
-
-    // Month selection
-    const monthKey = acc.ui?.calendarMonth || getMonthKey(todayISO());
-    const selectedDate = acc.ui?.selectedDate || null;
-
-    const monthExp = monthExpenses(acc, monthKey);
-    const spentMonth = sumExpenses(monthExp);
-
-    const budget = Number(acc.profile?.monthlyBudget) || 0;
-    const remaining = Math.max(0, budget - spentMonth);
-
-    // Budget card
-    activeMonthLabel.textContent = formatMonthLabel(monthKey);
-    budgetValue.textContent = currencyFmt.format(budget);
-    spentValue.textContent = currencyFmt.format(spentMonth);
-    remainingValue.textContent = currencyFmt.format(remaining);
-    setChipByRemaining(remaining, budget);
-
-    let pct = 0;
-    if (budget > 0) pct = Math.max(0, Math.min(100, (remaining / budget) * 100));
-    progressBar.style.width = `${pct.toFixed(1)}%`;
-    progressPct.textContent = `${pct.toFixed(1)}% left`;
-
-    // NEW: cumulative row when a day is selected (within the viewed month)
-    const isDayInMonth = !!(selectedDate && getMonthKey(selectedDate) === monthKey);
-    if (isDayInMonth) {
-      const dim = daysInMonthByKey(monthKey);
-      const dayN = Number(String(selectedDate).slice(8, 10));
-      const cumSpent = monthExp
-        .filter(e => String(e.date) <= String(selectedDate))
-        .reduce((a, e) => a + (Number(e.amount) || 0), 0);
-
-      cumLabel.textContent = `Cumulative to day ${dayN}`;
-      if (budget > 0) {
-        const cumBudget = budget * (dayN / Math.max(1, dim));
-        cumValue.textContent = `${currencyFmt.format(cumSpent)} • pace budget ${currencyFmt.format(cumBudget)}`;
-      } else {
-        cumValue.textContent = currencyFmt.format(cumSpent);
-      }
-      cumRow.classList.remove("hidden");
-    } else {
-      cumRow.classList.add("hidden");
-    }
-
-    // Focus list (day vs month)
-    let focusExp = monthExp;
-    let focusLabel = formatMonthLabel(monthKey);
-    let focusSelected = null;
-
-    if (isDayInMonth) {
-      focusExp = dayExpenses(acc, selectedDate);
-      focusLabel = formatDateLabel(selectedDate);
-      focusSelected = selectedDate;
-      totalLabel.textContent = "Day total";
-      totalHint.textContent = "You’re viewing a single day. Clear day to see the whole month.";
-      viewChip.textContent = `Viewing: ${focusLabel}`;
-      dateInput.value = selectedDate;
-    } else {
-      totalLabel.textContent = "Month total";
-      totalHint.textContent = "You’re viewing the selected month. Tap a day to zoom in.";
-      viewChip.textContent = `Viewing: ${focusLabel}`;
-      if (!dateInput.value) dateInput.value = todayISO();
-    }
-
-    monthTotal.textContent = currencyFmt.format(sumExpenses(focusExp));
-
-    renderExpensesTable(focusExp, (id) => {
-      const s = ensureStoreIntegrity(loadStore());
-      const a = getActiveAccount(s);
-      if (!a) return;
-      a.expenses = a.expenses.filter((e) => e.id !== id);
-      saveStore(s);
-      rerenderAll(s);
-      showToast("Expense deleted.");
-      animateCardPulse("#cardExpenses");
-    });
-
-    // NEW: chart mode (stored per account)
-    const chartMode = acc.ui?.chartMode || "daily";
-    chartModeButtons.forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.mode === chartMode);
-    });
-
-    renderCharts(monthExp, focusExp, monthKey, focusSelected, budget, chartMode);
-    renderCalendar(acc);
-    renderSuggestions(acc, monthKey, selectedDate);
-
-    renderAccountSelect(store);
-  }
-
-  // ---------- Events ----------
+  // ---------- events ----------
   welcomeForm.addEventListener("submit", (e) => {
     e.preventDefault();
-
     const name = userNameInput.value.trim();
     const budget = Number(monthlyBudgetInput.value);
-
     if (!name || !Number.isFinite(budget) || budget <= 0) {
-      showToast("Please enter a valid name and budget.");
+      showToast("Please enter a valid name and starting month budget.");
       return;
     }
-
-    const acc = defaultAccount(name, budget);
-    const store = { version: 2, settings: { themeHex: DEFAULT_THEME_HEX }, activeAccountId: acc.id, accounts: { [acc.id]: acc } };
+    const store = defaultStore(name, budget);
     saveStore(store);
 
     if (window.gsap) {
       gsap.to(".welcome-card", {
         opacity: 0, y: -10, duration: 0.35, ease: "power2.inOut",
         onComplete: () => {
-          goToDashboard();
+          welcomeView.classList.add("hidden");
+          dashboardView.classList.remove("hidden");
           rerenderAll(store);
           renderQuote();
           showToast("Welcome to Lumina Wealth.");
         }
       });
     } else {
-      goToDashboard();
+      welcomeView.classList.add("hidden");
+      dashboardView.classList.remove("hidden");
       rerenderAll(store);
       renderQuote();
       showToast("Welcome to Lumina Wealth.");
     }
   });
 
-  // Sidebar mobile
   sidebarToggle.addEventListener("click", () => openSidebarMobile());
   sidebarBackdrop.addEventListener("click", () => closeSidebarMobile());
 
-  // NEW: Chart mode toggle events
+  accountSelect.addEventListener("change", () => {
+    const store = ensureStoreIntegrity(loadStore());
+    const id = accountSelect.value;
+    if (!store.accounts[id]) return;
+    store.activeAccountId = id;
+    saveStore(store);
+    rerenderAll(store);
+    showToast("Account switched.");
+    closeSidebarMobile();
+  });
+
+  manageAccountsBtn.addEventListener("click", () => openAccountsModal());
+  editMonthBtn.addEventListener("click", () => openMonthModal());
+
+  addAccountForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const name = newAccountName.value.trim();
+    const budget = Number(newAccountBudget.value);
+    if (!name || !Number.isFinite(budget) || budget <= 0) {
+      showToast("Enter a valid account name and starting month budget.");
+      return;
+    }
+
+    const store = ensureStoreIntegrity(loadStore());
+    const acc = defaultAccount(name, budget, getMonthKey(todayISO()));
+
+    store.accounts[acc.id] = acc;
+    store.activeAccountId = acc.id;
+
+    saveStore(store);
+    rerenderAll(store);
+
+    newAccountName.value = "";
+    newAccountBudget.value = "";
+    showToast("Account created & activated.");
+    closeAccountsModal();
+  });
+
+  monthForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const store = ensureStoreIntegrity(loadStore());
+    const acc = getActiveAccount(store);
+    if (!acc) return;
+
+    const mk = acc.ui.calendarMonth || getMonthKey(todayISO());
+
+    const newName = monthAccountName.value.trim();
+    const budget = Number(monthBudgetInput.value);
+    const income = Number(monthIncomeInput.value || 0);
+
+    if (!newName) return showToast("Enter a valid account name.");
+    if (!Number.isFinite(budget) || budget < 0) return showToast("Enter a valid month budget (0 or more).");
+    if (!Number.isFinite(income) || income < 0) return showToast("Enter a valid month income (0 or more).");
+
+    acc.profile.name = newName;
+    setMonthFinance(acc, mk, budget, income);
+
+    saveStore(store);
+    monthModal.classList.add("hidden");
+    rerenderAll(store);
+    showToast("Month settings saved.");
+  });
+
+  if (scopeToggle) {
+    scopeToggle.addEventListener("click", (e) => {
+      const btn = e.target?.closest?.(".seg");
+      if (!btn) return;
+      const scope = btn.dataset.scope;
+      if (scope !== "month" && scope !== "all") return;
+
+      const store = ensureStoreIntegrity(loadStore());
+      const acc = getActiveAccount(store);
+      if (!acc) return;
+
+      acc.ui.scope = scope;
+      if (scope === "all") acc.ui.selectedDate = null;
+      saveStore(store);
+      rerenderAll(store);
+      showToast(scope === "all" ? "All months view enabled." : "Month view enabled.");
+    });
+  }
+
   if (chartModeToggle) {
     chartModeToggle.addEventListener("click", (e) => {
       const btn = e.target?.closest?.(".seg");
@@ -1201,105 +1750,39 @@
       acc.ui.chartMode = mode;
       saveStore(store);
       rerenderAll(store);
-      showToast(mode === "cumulative" ? "Cumulative view enabled." : "Daily view enabled.");
+      showToast(mode === "cumulative" ? "Cumulative view enabled." : "Standard view enabled.");
     });
   }
 
-  // Account switching
-  accountSelect.addEventListener("change", () => {
-    const store = ensureStoreIntegrity(loadStore());
-    const id = accountSelect.value;
-    if (!store.accounts[id]) return;
-    store.activeAccountId = id;
-    saveStore(store);
-    rerenderAll(store);
-    showToast("Account switched.");
-    closeSidebarMobile();
-  });
-
-  manageAccountsBtn.addEventListener("click", () => openAccountsModal());
-  editProfileBtn.addEventListener("click", () => openProfileModal());
-
-  profileForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const newName = profileName.value.trim();
-    const newBudget = Number(profileBudget.value);
-
-    if (!newName || !Number.isFinite(newBudget) || newBudget <= 0) {
-      showToast("Please enter a valid name and budget.");
-      return;
-    }
-
-    const store = ensureStoreIntegrity(loadStore());
-    const acc = getActiveAccount(store);
-    if (!acc) return;
-
-    acc.profile.name = newName;
-    acc.profile.monthlyBudget = newBudget;
-
-    saveStore(store);
-    rerenderAll(store);
-
-    profileModal.classList.add("hidden");
-    showToast("Account updated.");
-  });
-
-  // Add account
-  addAccountForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const name = newAccountName.value.trim();
-    const budget = Number(newAccountBudget.value);
-
-    if (!name || !Number.isFinite(budget) || budget <= 0) {
-      showToast("Enter a valid account name and budget.");
-      return;
-    }
-
-    const store = ensureStoreIntegrity(loadStore());
-    const acc = defaultAccount(name, budget);
-
-    store.accounts[acc.id] = acc;
-    store.activeAccountId = acc.id;
-
-    saveStore(store);
-    renderAccountSelect(store);
-    renderAccountsModal(store);
-    rerenderAll(store);
-
-    newAccountName.value = "";
-    newAccountBudget.value = "";
-    showToast("Account created & activated.");
-    closeAccountsModal();
-  });
-
-  // Income
+  // Income edit only in month scope
   incomeInput.addEventListener("input", () => {
     const store = ensureStoreIntegrity(loadStore());
     const acc = getActiveAccount(store);
     if (!acc) return;
+    if ((acc.ui.scope || "month") !== "month") return;
+
+    const mk = acc.ui.calendarMonth || getMonthKey(todayISO());
+    const fin = getMonthFinance(acc, mk);
 
     const v = Number(incomeInput.value);
-    acc.profile.monthlyIncome = Number.isFinite(v) && v >= 0 ? v : 0;
+    const income = Number.isFinite(v) && v >= 0 ? v : 0;
+    setMonthFinance(acc, mk, fin.budget, income);
 
     saveStore(store);
     rerenderAll(store);
-    animateCardPulse("#cardBudget");
   });
 
   // Expense add
   expenseForm.addEventListener("submit", (e) => {
     e.preventDefault();
 
-    const category = categoryInput.value;
+    const category = String(categoryInput.value || "").trim();
     const amount = Number(amountInput.value);
     const date = dateInput.value;
 
-    if (!category || !Number.isFinite(amount) || amount <= 0 || !date) {
-      showToast("Please enter category, valid amount, and date.");
-      return;
-    }
+    if (!category) return showToast("Enter a category/name.");
+    if (!Number.isFinite(amount) || amount <= 0) return showToast("Enter a valid amount.");
+    if (!date) return showToast("Select a date.");
 
     const store = ensureStoreIntegrity(loadStore());
     const acc = getActiveAccount(store);
@@ -1307,9 +1790,15 @@
 
     acc.expenses.push({ id: uid("exp"), category, amount, date });
 
-    // Jump calendar to that month; keep selection aligned if a day is selected
+    // Keep calendar month aligned with added expense month
     acc.ui.calendarMonth = getMonthKey(date);
-    if (acc.ui.selectedDate) acc.ui.selectedDate = date;
+
+    // If in month scope, optionally jump to that day selection
+    if ((acc.ui.scope || "month") === "month") {
+      acc.ui.selectedDate = date;
+    } else {
+      acc.ui.selectedDate = null;
+    }
 
     saveStore(store);
     rerenderAll(store);
@@ -1317,70 +1806,9 @@
     amountInput.value = "";
     showToast("Expense added.");
     closeSidebarMobile();
-
-    if (window.gsap) {
-      gsap.fromTo("#cardExpenses", { y: 0 }, { y: -3, duration: 0.12, yoyo: true, repeat: 1, ease: "power1.out" });
-    }
   });
 
-  // Quote refresh
-  newQuoteBtn.addEventListener("click", () => renderQuote());
-
-  // Suggestions refresh
-  refreshSuggestionsBtn.addEventListener("click", () => {
-    const store = ensureStoreIntegrity(loadStore());
-    rerenderAll(store);
-    showToast("Suggestions refreshed.");
-  });
-
-  // Theme change
-  themeColorInput.addEventListener("input", () => {
-    const hex = themeColorInput.value || DEFAULT_THEME_HEX;
-    const store = ensureStoreIntegrity(loadStore());
-    store.settings.themeHex = hex;
-    saveStore(store);
-    rerenderAll(store);
-  });
-
-  presetSwatches.forEach(btn => {
-    const c = btn.getAttribute("data-color");
-    if (c) btn.style.background = c;
-    btn.addEventListener("click", () => {
-      const hex = btn.getAttribute("data-color") || DEFAULT_THEME_HEX;
-      themeColorInput.value = hex;
-      const store = ensureStoreIntegrity(loadStore());
-      store.settings.themeHex = hex;
-      saveStore(store);
-      rerenderAll(store);
-      showToast("Theme updated.");
-    });
-  });
-
-  resetThemeBtn.addEventListener("click", () => {
-    themeColorInput.value = DEFAULT_THEME_HEX;
-    const store = ensureStoreIntegrity(loadStore());
-    store.settings.themeHex = DEFAULT_THEME_HEX;
-    saveStore(store);
-    rerenderAll(store);
-    showToast("Theme reset.");
-  });
-
-  // Reset everything
-  resetBtn.addEventListener("click", () => {
-    const ok = confirm("Reset ALL accounts and data? This cannot be undone.");
-    if (!ok) return;
-
-    localStorage.removeItem(STORAGE_KEY);
-    destroyCharts();
-    showToast("All data cleared.");
-    closeSidebarMobile();
-    goToWelcome();
-
-    const card = document.querySelector(".welcome-card");
-    if (card) { card.style.opacity = ""; card.style.transform = ""; }
-  });
-
-  // Calendar controls
+  // Calendar controls (month scope only)
   calPrev.addEventListener("click", () => {
     const store = ensureStoreIntegrity(loadStore());
     const acc = getActiveAccount(store);
@@ -1417,6 +1845,7 @@
     const t = todayISO();
     acc.ui.calendarMonth = getMonthKey(t);
     acc.ui.selectedDate = t;
+    acc.ui.scope = "month";
 
     saveStore(store);
     dateInput.value = t;
@@ -1435,41 +1864,107 @@
     showToast("Day filter cleared.");
   });
 
-  // Close modals on backdrop
-  wireModalClose(profileModal);
-  wireModalClose(accountsModal);
+  // Theme
+  themeColorInput.addEventListener("input", () => {
+    const hex = themeColorInput.value || DEFAULT_THEME_HEX;
+    const store = ensureStoreIntegrity(loadStore());
+    store.settings.themeHex = hex;
+    saveStore(store);
+    rerenderAll(store);
+  });
 
-  // ESC closes modals + mobile sidebar
+  presetSwatches.forEach(btn => {
+    const c = btn.getAttribute("data-color");
+    if (c) btn.style.background = c;
+    btn.addEventListener("click", () => {
+      const hex = btn.getAttribute("data-color") || DEFAULT_THEME_HEX;
+      themeColorInput.value = hex;
+      const store = ensureStoreIntegrity(loadStore());
+      store.settings.themeHex = hex;
+      saveStore(store);
+      rerenderAll(store);
+      showToast("Theme updated.");
+    });
+  });
+
+  resetThemeBtn.addEventListener("click", () => {
+    themeColorInput.value = DEFAULT_THEME_HEX;
+    const store = ensureStoreIntegrity(loadStore());
+    store.settings.themeHex = DEFAULT_THEME_HEX;
+    saveStore(store);
+    rerenderAll(store);
+    showToast("Theme reset.");
+  });
+
+  // PDF
+  if (downloadPdfBtn) {
+    downloadPdfBtn.addEventListener("click", () => {
+      downloadPdfReport();
+      showToast("PDF report downloaded.");
+    });
+  }
+
+  // Suggestions refresh
+  refreshSuggestionsBtn.addEventListener("click", () => {
+    const store = ensureStoreIntegrity(loadStore());
+    rerenderAll(store);
+    showToast("Suggestions refreshed.");
+  });
+
+  // Quote refresh
+  newQuoteBtn.addEventListener("click", () => renderQuote());
+
+  // Reset everything
+  resetBtn.addEventListener("click", () => {
+    const ok = confirm("Reset ALL accounts and data? This cannot be undone.");
+    if (!ok) return;
+
+    localStorage.removeItem(STORAGE_KEY);
+    destroyCharts();
+    showToast("All data cleared.");
+
+    dashboardView.classList.add("hidden");
+    welcomeView.classList.remove("hidden");
+
+    const card = document.querySelector(".welcome-card");
+    if (card) { card.style.opacity = ""; card.style.transform = ""; }
+  });
+
+  // ESC closes modals + sidebar
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      profileModal.classList.add("hidden");
       accountsModal.classList.add("hidden");
+      monthModal.classList.add("hidden");
       closeSidebarMobile();
     }
   });
 
-  // ---------- Init ----------
+  // ---------- init ----------
   function init() {
     const migrated = tryMigrateLegacy();
     let store = migrated || loadStore();
     if (store) store = ensureStoreIntegrity(store);
 
-    // Apply saved theme early
     const themeHex = store?.settings?.themeHex || DEFAULT_THEME_HEX;
     applyThemeHex(themeHex);
     if (themeColorInput) themeColorInput.value = themeHex;
 
-    if (store && getActiveAccount(store)?.profile?.monthlyBudget > 0) {
-      goToDashboard();
-      renderAccountSelect(store);
+    const hasData = !!store && !!getActiveAccount(store);
+    if (hasData) {
+      welcomeView.classList.add("hidden");
+      dashboardView.classList.remove("hidden");
       rerenderAll(store);
       renderQuote();
     } else {
-      goToWelcome();
+      welcomeView.classList.remove("hidden");
+      dashboardView.classList.add("hidden");
       if (window.gsap) {
         gsap.fromTo(".welcome-card", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" });
       }
     }
+
+    // default date input
+    if (dateInput && !dateInput.value) dateInput.value = todayISO();
   }
 
   init();

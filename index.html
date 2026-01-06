@@ -11,10 +11,14 @@
 
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Chart.js (CDN) -->
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <!-- GSAP (CDN) -->
+  <!-- GSAP -->
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+
+  <!-- jsPDF + AutoTable -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 </head>
 
 <body>
@@ -33,7 +37,7 @@
           <div class="brand-mark" aria-hidden="true">LW</div>
           <div>
             <h1 class="brand-title">Lumina Wealth</h1>
-            <p class="brand-subtitle">Separate accounts. One calm dashboard.</p>
+            <p class="brand-subtitle">Separate accounts. Monthly budgets. One calm dashboard.</p>
           </div>
         </div>
 
@@ -44,12 +48,12 @@
           </label>
 
           <label class="field">
-            <span>Monthly budget</span>
+            <span>Starting month budget (for this month only)</span>
             <div class="prefix-input">
               <span class="prefix" aria-hidden="true">Budget</span>
               <input id="monthlyBudgetInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="e.g., 1200" required />
             </div>
-            <small class="hint">You can add more accounts later (e.g., wife) from the sidebar.</small>
+            <small class="hint">You can set different budgets for each month later.</small>
           </label>
 
           <button class="btn primary" type="submit">
@@ -66,7 +70,6 @@
 
     <!-- DASHBOARD -->
     <section class="dashboard hidden" id="dashboardView" aria-label="Lumina Wealth Dashboard">
-      <!-- Mobile overlay backdrop for sidebar -->
       <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
 
       <aside class="sidebar glass" id="sidebar">
@@ -76,7 +79,7 @@
           </div>
           <div>
             <p class="hello">Hello, <strong id="helloName">friend</strong></p>
-            <p class="muted">Pick an account to view its history.</p>
+            <p class="muted">Track months, days, and accounts separately.</p>
           </div>
         </div>
 
@@ -88,7 +91,7 @@
 
           <div class="account-actions">
             <button class="btn ghost small" id="manageAccountsBtn" type="button">Manage</button>
-            <button class="btn ghost small" id="editProfileBtn" type="button">Edit budget</button>
+            <button class="btn ghost small" id="editMonthBtn" type="button">Set month budget</button>
           </div>
         </div>
 
@@ -117,12 +120,11 @@
           <small class="hint">Theme applies to the whole dashboard (and is saved).</small>
         </div>
 
+        <!-- QUOTE -->
         <div class="quote-card glass-inner" aria-live="polite">
           <div class="quote-header">
             <h3>Daily Spark</h3>
-            <button class="btn ghost small" id="newQuoteBtn" type="button" title="New quote">
-              Refresh
-            </button>
+            <button class="btn ghost small" id="newQuoteBtn" type="button" title="New quote">Refresh</button>
           </div>
           <p class="quote-text" id="quoteText">Loading a quote…</p>
           <p class="quote-author" id="quoteAuthor"></p>
@@ -134,28 +136,30 @@
 
         <footer class="sidebar-foot">
           <span class="pill">Multi-Account</span>
-          <span class="pill">Calendar</span>
-          <span class="pill">Theme</span>
-          <span class="pill">Suggestions</span>
-          <span class="pill">Cumulative</span>
+          <span class="pill">Month Budgets</span>
+          <span class="pill">All-months</span>
+          <span class="pill">PDF</span>
         </footer>
       </aside>
 
       <section class="content">
         <header class="topbar glass">
           <div class="topbar-left">
-            <button class="btn ghost small sidebar-toggle" id="sidebarToggle" type="button" aria-label="Open menu">
-              ☰
-            </button>
+            <button class="btn ghost small sidebar-toggle" id="sidebarToggle" type="button" aria-label="Open menu">☰</button>
             <div>
               <h2 class="title">Overview</h2>
-              <p class="subtitle">Navigate months, click days, and track each account separately.</p>
+              <p class="subtitle">Month view + All-months cumulative view. Tap calendar days to drill down.</p>
             </div>
           </div>
 
           <div class="topbar-right">
+            <div class="segmented" id="scopeToggle" aria-label="Scope">
+              <button class="seg active" type="button" data-scope="month">Month</button>
+              <button class="seg" type="button" data-scope="all">All months</button>
+            </div>
+
             <label class="field inline">
-              <span>Monthly Income</span>
+              <span id="incomeLabel">Monthly Income</span>
               <input id="incomeInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="e.g., 1800" />
             </label>
           </div>
@@ -174,7 +178,11 @@
               <span class="mini-value" id="activeMonthLabel">—</span>
             </div>
 
-            <!-- NEW: shows only when a day is selected -->
+            <div class="mini-row hidden" id="trackedRow">
+              <span class="mini-label">Tracked months</span>
+              <span class="mini-value" id="trackedValue">—</span>
+            </div>
+
             <div class="mini-row hidden" id="cumRow">
               <span class="mini-label" id="cumLabel">Cumulative</span>
               <span class="mini-value" id="cumValue">—</span>
@@ -182,15 +190,15 @@
 
             <div class="metrics">
               <div class="metric">
-                <span class="label">Budget</span>
+                <span class="label" id="budgetLabel">Budget</span>
                 <span class="value" id="budgetValue">—</span>
               </div>
               <div class="metric">
-                <span class="label">Spent</span>
+                <span class="label" id="spentLabel">Spent</span>
                 <span class="value" id="spentValue">—</span>
               </div>
               <div class="metric">
-                <span class="label">Remaining</span>
+                <span class="label" id="remainingLabel">Remaining</span>
                 <span class="value" id="remainingValue">—</span>
               </div>
             </div>
@@ -206,11 +214,11 @@
             </div>
           </article>
 
-          <!-- Calendar -->
+          <!-- Calendar / Month list -->
           <article class="card glass" id="cardCalendar">
             <div class="card-head">
-              <h3>Calendar</h3>
-              <div class="cal-nav">
+              <h3 id="calendarTitle">Calendar</h3>
+              <div class="cal-nav" id="calNav">
                 <button class="btn ghost small" id="calPrev" type="button" aria-label="Previous month">◀</button>
                 <span class="cal-month" id="calMonthLabel">—</span>
                 <button class="btn ghost small" id="calNext" type="button" aria-label="Next month">▶</button>
@@ -218,19 +226,28 @@
               </div>
             </div>
 
-            <div class="calendar">
+            <!-- Month scope calendar -->
+            <div class="calendar" id="calendarWrap">
               <div class="cal-weekdays" aria-hidden="true">
                 <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
               </div>
               <div class="cal-grid" id="calGrid" role="grid" aria-label="Expense calendar"></div>
+
+              <div class="cal-foot">
+                <div class="cal-selected" id="calSelectedLabel">Viewing: —</div>
+                <button class="btn ghost small" id="clearSelectionBtn" type="button">Clear day</button>
+              </div>
+              <small class="hint">Days with expenses glow. Tap a day to filter history.</small>
             </div>
 
-            <div class="cal-foot">
-              <div class="cal-selected" id="calSelectedLabel">Viewing: —</div>
-              <button class="btn ghost small" id="clearSelectionBtn" type="button">Clear day</button>
+            <!-- All-months scope list -->
+            <div class="monthlist-wrap hidden" id="monthListWrap">
+              <div class="monthlist-head">
+                <div class="muted">Tap a month to open it (Month view).</div>
+              </div>
+              <div class="monthlist" id="monthList"></div>
+              <small class="hint">This list combines months from expenses + months with saved budgets.</small>
             </div>
-
-            <small class="hint">Days with expenses glow. Tap a day to filter history.</small>
           </article>
 
           <!-- Suggestions -->
@@ -239,13 +256,8 @@
               <h3>Saving Suggestions</h3>
               <button class="btn ghost small" id="refreshSuggestionsBtn" type="button">Refresh</button>
             </div>
-
             <ul class="suggestions" id="suggestionsList"></ul>
-
-            <small class="hint">
-              Tips are generated from your active account and the month/day you’re viewing.
-              (Not financial advice — just smart budgeting nudges.)
-            </small>
+            <small class="hint">Smart nudges based on your current scope (Month vs All months).</small>
           </article>
 
           <!-- Expenses -->
@@ -260,18 +272,16 @@
 
             <form class="expense-form" id="expenseForm">
               <label class="field">
-                <span>Category</span>
-                <select id="categoryInput" required>
-                  <option value="Food">Food</option>
-                  <option value="Transport">Transport</option>
-                  <option value="Housing">Housing</option>
-                  <option value="Utilities">Utilities</option>
-                  <option value="Health">Health</option>
-                  <option value="Education">Education</option>
-                  <option value="Entertainment">Entertainment</option>
-                  <option value="Shopping">Shopping</option>
-                  <option value="Other">Other</option>
-                </select>
+                <span>Category / Name</span>
+                <input
+                  id="categoryInput"
+                  type="text"
+                  list="categoryList"
+                  placeholder="e.g., Groceries, Uber, Rent"
+                  maxlength="40"
+                  required
+                />
+                <datalist id="categoryList"></datalist>
               </label>
 
               <label class="field">
@@ -305,7 +315,7 @@
             </div>
 
             <div class="table-foot">
-              <div class="muted" id="totalHint">Totals update based on your calendar selection.</div>
+              <div class="muted" id="totalHint">Totals update based on your scope and selection.</div>
               <div class="total">
                 <span class="label" id="totalLabel">Total</span>
                 <span class="value" id="monthTotal">—</span>
@@ -318,19 +328,19 @@
             <div class="card-head">
               <h3>Spending Visuals</h3>
               <div class="head-chips">
-                <!-- NEW: mode toggle -->
                 <div class="segmented" id="chartModeToggle" aria-label="Chart mode">
                   <button class="seg active" type="button" data-mode="daily">Daily</button>
                   <button class="seg" type="button" data-mode="cumulative">Cumulative</button>
                 </div>
 
+                <button class="btn ghost small" id="downloadPdfBtn" type="button">Download PDF</button>
                 <span class="chip subtle" id="chartMonthChip">—</span>
               </div>
             </div>
 
             <div class="charts">
               <div class="chart-box glass-inner">
-                <h4 class="chart-title" id="trendTitle">Trend (by day)</h4>
+                <h4 class="chart-title" id="trendTitle">Trend</h4>
                 <canvas id="trendChart" height="140"></canvas>
               </div>
 
@@ -344,30 +354,42 @@
       </section>
     </section>
 
-    <!-- EDIT PROFILE MODAL (current account) -->
-    <div class="modal hidden" id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+    <!-- MONTH SETTINGS MODAL -->
+    <div class="modal hidden" id="monthModal" role="dialog" aria-modal="true" aria-labelledby="monthTitle">
       <div class="modal-backdrop" data-close="true"></div>
       <div class="modal-panel glass">
         <div class="modal-head">
-          <h3 id="profileTitle">Edit Current Account</h3>
+          <div>
+            <h3 id="monthTitle">Month Settings</h3>
+            <p class="muted tiny">Editing: <span id="editMonthLabel">—</span></p>
+          </div>
           <button class="btn ghost small" type="button" data-close="true">Close</button>
         </div>
 
-        <form id="profileForm" class="modal-form">
+        <form id="monthForm" class="modal-form">
           <label class="field">
             <span>Account name</span>
-            <input id="profileName" type="text" maxlength="32" required />
+            <input id="monthAccountName" type="text" maxlength="32" required />
           </label>
 
           <label class="field">
-            <span>Monthly budget</span>
-            <input id="profileBudget" type="number" inputmode="decimal" min="0" step="0.01" required />
+            <span>Budget for this month</span>
+            <input id="monthBudgetInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="e.g., 1200" required />
+          </label>
+
+          <label class="field">
+            <span>Income for this month (optional)</span>
+            <input id="monthIncomeInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="e.g., 1800" />
           </label>
 
           <button class="btn primary" type="submit">
             <span>Save</span>
             <span class="btn-glow" aria-hidden="true"></span>
           </button>
+
+          <small class="hint">
+            Tip: Navigate to another month using ◀ ▶ then open this modal to set that month’s budget.
+          </small>
         </form>
       </div>
     </div>
@@ -394,7 +416,7 @@
           </label>
 
           <label class="field">
-            <span>Monthly budget</span>
+            <span>Starting month budget (this month)</span>
             <input id="newAccountBudget" type="number" inputmode="decimal" min="0" step="0.01" placeholder="e.g., 800" required />
           </label>
 
